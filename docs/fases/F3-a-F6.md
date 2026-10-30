@@ -1,6 +1,6 @@
 # Fases 3 a 6 e integrações
 
-**Fora do foco atual.** Primeiro vêm o atendimento e o despacho (MVP e fase 2). Estas fases ficam sem data.
+**Fora do foco atual.** Primeiro vêm o atendimento e o despacho (MVP). Estas fases ficam sem data. Antes de cada uma, aplicar o filtro de PADROES, Enxuto: que trabalho manual ela tira, de quem, e quem pediu. O motoboy continua sem usar o sistema (decisão 0007).
 
 Nível de roteiro: há pouco levantado sobre cozinha, mesas e caixa geral. Antes de cada fase, levantar as perguntas abertas, escrever a spec completa (no formato de `F1-acerto.md`) e só então construir.
 
@@ -60,7 +60,7 @@ Nível de roteiro: há pouco levantado sobre cozinha, mesas e caixa geral. Antes
 ## Integrações
 
 ### I1. Pix automático
-- **Como funciona:** ao fechar um pedido com Pix antecipado, o sistema cria uma cobrança com o valor exato e um `txid` ligado ao pedido. O copia e cola vai no resumo do WhatsApp (ou aparece na página do link). O provedor avisa o pagamento por webhook. O pagamento vira `pix_confirmado = true` (origem `webhook`), e a coluna PIX e o app do motoboy atualizam sozinhos.
+- **Como funciona:** ao fechar um pedido com Pix antecipado, o sistema cria uma cobrança com o valor exato e um `txid` ligado ao pedido. O copia e cola vai no resumo do WhatsApp (ou aparece na página do link). O provedor avisa o pagamento por webhook. O pagamento vira `pix_confirmado = true` (origem `webhook`), a coluna PIX atualiza sozinha e a comanda já sai "PIX PAGO".
 - **Sem pagamento:** a cobrança expira e o pedido fica "aguardando Pix".
 - **Provedor:** o Itaú é o provável, porque a maquininha é a Laranjinha (ver ARQUITETURA, Integrações).
   - Mercado Pago: token, sem certificado.
@@ -74,7 +74,7 @@ Nível de roteiro: há pouco levantado sobre cozinha, mesas e caixa geral. Antes
   - **Resultado:** casados, "cartão sem comanda" e "comanda sem cartão". Valores iguais na mesma janela de tempo ficam para o Luan escolher.
   - Escrever testes com relatórios reais anonimizados.
 - **Depois, opcional:** maquininha integrada.
-  - O motoboy toca "Cobrar", o valor aparece na maquininha dele, e o resultado volta sozinho.
+  - O valor aparece sozinho na maquininha, e o resultado volta para o sistema. Exigiria o motoboy usar o sistema, o que saiu do plano (decisão 0007); só volta à mesa se as tarifas compensarem muito.
   - O Mercado Pago Point tem API aberta para isso (API de Orders, terminais Smart e Pro). Stone e PagBank exigem parceria comercial e homologação.
   - Só vale se as tarifas compensarem a troca.
 
@@ -85,4 +85,4 @@ Ver a fase 5.
 - **O que daria:** caixa de entrada compartilhada com atribuição de conversa, robô e IA lendo as mensagens para montar rascunhos de pedido.
 - **Custo:** desde 01/10/2026 são 1.000 mensagens de atendimento grátis por mês e por número, e depois cerca de US$ 0,0068 por mensagem no Brasil. Daria uns R$ 420 por mês no volume da Mel, mais a plataforma.
 - **Coexistência:** permite manter o app no celular junto com a API, no mesmo número.
-- **Quando:** só se o volume ou a IA justificarem. Até lá, a trava de atendimento do sistema (fase 2) resolve os dois atendentes no mesmo número.
+- **Quando:** só se o volume ou a IA justificarem. Até lá, a trava de atendimento do sistema (MVP) resolve os dois atendentes no mesmo número.

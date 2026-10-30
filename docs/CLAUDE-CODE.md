@@ -63,6 +63,12 @@ O `settings.json` já liga estes plugins; na primeira vez, instale cada um uma v
 
 Antes de instalar qualquer outro, veja o custo por mensagem no `/plugin`.
 
+## Skills do projeto (`.claude/skills/`)
+
+Comandos próprios da Mel, versionados no repositório. Só rodam quando você chama (`disable-model-invocation: true`), então não gastam tokens nas outras mensagens.
+- **`/remover-funcionalidade <nome> [motivo]`:** tira uma funcionalidade sem quebrar o resto. Mapeia tudo o que ela toca, mostra o plano e espera o seu ok; depois remove em passos pequenos, com `pnpm check` e um commit em cada passo. Exemplo: `/remover-funcionalidade motoboy decisão 0007`.
+- Se o comando não aparecer na sessão aberta, peça: "leia `.claude/skills/remover-funcionalidade/SKILL.md` e siga com `motoboy`".
+
 ## Hooks (rodam sozinhos, em Node, funcionam no Windows)
 
 | Hook | Quando | O que faz |

@@ -4,10 +4,27 @@ Para o sistema crescer até o PDV completo sem virar um emaranhado. Vale para to
 
 ## Organização
 
-- **Por funcionalidade, não por tipo de arquivo.** Exemplo: `apps/web/src/funcionalidades/acerto/` guarda as telas, os hooks e os testes do acerto, juntos. Pastas compartilhadas só para o que é usado por três ou mais funcionalidades.
+- **Por funcionalidade, não por tipo de arquivo.** Exemplo: `apps/web/src/funcionalidades/acerto/` guarda as telas, os hooks e os testes do acerto, juntos. O que duas ou mais funcionalidades usam vai para `compartilhado/` (ver Módulos removíveis).
 - **Direção das dependências:** tela → `repo.ts` → `packages/dominio`.
   - O domínio não importa React, Supabase, Dexie nem `Date.now()`. Recebe tudo como parâmetro, incluindo o horário. Assim, cada regra é testável sozinha.
-- **Integrações atrás de interfaces** (`ProvedorPix`, `Impressora`, `EmissorNfce`). Trocar fornecedor é escrever outro adaptador.
+- **Integrações atrás de interfaces** (hoje só `Impressora`). Trocar fornecedor é escrever outro adaptador. A interface nasce junto com a integração, nunca "para o futuro".
+
+## Enxuto
+
+- **Antes de criar uma funcionalidade,** responder em uma linha: que trabalho manual ela tira, de quem, e quem pediu. Sem resposta, não entra.
+- **Nada "para o futuro":** sem interface, tabela, papel, rota ou tela que a fase atual não usa.
+- **Erro bobo não vira tela:** o que a equipe resolve no boca a boca fica fora (`ERROS-PREVISTOS.md`). O que mexe em dinheiro, em dado de cliente ou trava a noite vira teste.
+
+## Módulos removíveis
+
+Cada funcionalidade entra e sai sem quebrar o resto (decisão 0008).
+
+- **Uma pasta por funcionalidade** em `apps/web/src/funcionalidades/<nome>/`, com um `index.ts` que exporta só a ficha do módulo: `{ nome, rotas, papeis, menu }`. Ninguém de fora importa os arquivos internos da pasta.
+- **Uma lista só:** `apps/web/src/funcionalidades/index.ts` lista os módulos. O `App.tsx` monta rotas e menu a partir dela. Pôr ou tirar um módulo é uma linha.
+- **Funcionalidade não importa outra.** O que duas usam vai para `compartilhado/` (tela) ou para `packages/dominio` (regra). O teste `modulos.test.ts` lê os imports e falha se uma funcionalidade importar outra.
+- **Interruptor sem deploy:** `config` guarda as funcionalidades desligadas (OPE1). O app esconde a rota e o menu delas. Serve para desligar algo com problema no meio da noite, porque deploy só fora do turno (OPE4).
+- **Tudo tem dono:** cada operação em `packages/db/src/operacoes.ts` diz a que funcionalidade pertence. Tabela usada por mais de uma é do núcleo (noite, pedido, saída, pagamento, caixa, acerto) e nunca é removida junto com um módulo.
+- **Remover:** `/remover-funcionalidade <nome>` (`.claude/skills/remover-funcionalidade/`). A ordem é: mapear e mostrar ao Felipe → tirar da lista → mover para `compartilhado/` ou `dominio` o que outro módulo ainda usa → apagar a pasta e os testes → tirar do front as operações que só ela usava → contrair o banco numa migração nova, numa versão seguinte. `pnpm check` verde e um commit em cada passo.
 
 ## Nomes
 
@@ -40,7 +57,8 @@ Pagamentos, acertos, sobras e faltas nunca são apagados nem sobrescritos. Uma c
 
 - **Domínio:** todas as regras e todos os casos das specs (T, P), com 100% das linhas de `packages/dominio` cobertas.
 - **Banco:** RLS por papel, `aplicar_operacao` (idempotência, versões e travas) e migrações rodando do zero.
-- **Ponta a ponta (Playwright):** poucos testes, só nos fluxos que dão dinheiro: lançar, entregar, acertar e imprimir.
+- **Ponta a ponta (Playwright):** poucos testes, só nos fluxos que dão dinheiro: digitar e autorizar o pedido, despachar, trocar a forma, acertar e imprimir.
+- **Erros previstos:** cada linha "Sistema" de `ERROS-PREVISTOS.md` tem pelo menos um teste.
 - **Todo bug corrigido ganha um teste** que falhava antes da correção.
 
 ## Banco e migrações
@@ -90,5 +108,6 @@ O arquivo `docs/O-QUE-MUDOU.md` é escrito para o Luan e a gerente, não para pr
 - `pnpm check` verde.
 - Os casos da spec viraram testes.
 - Nenhuma regra de negócio fora de `packages/dominio`.
+- `modulos.test.ts` verde: nenhuma funcionalidade importa outra.
 - Nenhum segredo no código (os hooks barram; o CI confere com o gitleaks).
 - Docs e "O que mudou" atualizados.

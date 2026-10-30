@@ -20,20 +20,22 @@ Atualizado em 30/10/2026. Reúne tudo o que foi levantado com o Felipe (motoboy 
 3. **O cliente escolhe como pedir.** Conversa no WhatsApp continua para sempre; o link é opção, nunca obrigação.
 4. **Não aumentar o trabalho de quem está sobrecarregado.** O Luan e a dona acumulam funções. Se uma tela deixa o trabalho deles mais lento no meio do movimento, ela não pega.
 5. **Mostrar de onde vem cada valor.** Falta no caixa é descontada do motoboy, então toda conta tem que ser conferível.
-6. **Funcionar sem internet** no celular do motoboy e no balcão, sincronizando quando a conexão voltar.
+6. **Funcionar sem internet** no balcão, sincronizando quando a conexão voltar. A impressão segue pela rede local.
 7. **Fuso fixo da pizzaria.** As três cidades usam o horário de Brasília (Felipe, 30/10). O sistema usa sempre esse fuso (`America/Sao_Paulo`), nunca o do aparelho: um celular em MT com fuso automático pode marcar o horário de Cuiabá, uma hora a menos.
+8. **Enxuto** (Felipe, 30/10). Quanto mais funções, mais coisa para quebrar, mais complexo e mais caro. Só entra o que tira trabalho manual de alguém. Erro que mexe em dinheiro, em dado de cliente ou trava a noite é do sistema; erro bobo se resolve no boca a boca (`ERROS-PREVISTOS.md`).
+9. **O motoboy não usa o sistema** (Felipe, 30/10). Ele recebe a comanda impressa e o recibo do acerto. Quem registra o despacho, o que voltou e a forma que mudou na porta é o Luan (decisão 0007).
 
 ## 3. Pessoas e papéis no sistema
 
 | Pessoa | O que faz hoje | Papel no sistema |
 |---|---|---|
-| Felipe | Motoboy e desenvolvedor | `admin` e `motoboy` |
+| Felipe | Motoboy e desenvolvedor | `admin` (e cadastrado como motoboy) |
 | Dona | Caixa; atende o WhatsApp no segundo celular; resolve cobrança em dobro; cuida do dinheiro depois do acerto | `gerente` |
 | Luan | Celular dedicado ao WhatsApp; manda as localizações; confere o Pix antecipado; despacho e folha de expedição; separa retiradas; faz o acerto | `expedicao` (também atende) |
-| Atendentes | Anotam pedidos no WhatsApp | `atendente` |
-| Motoboys | 4 de quarta a sexta e 5 no sábado e domingo; cada um com celular com internet e uma maquininha | `motoboy` |
-| Cozinha | Recebe a comanda levada à mão (equipe ainda não levantada) | `cozinha` |
-| Garçons | Ainda não levantado | `garcom` |
+| Atendentes | Anotam pedidos no WhatsApp | `atendente` (o computador do balcão fica com esta conta) |
+| Motoboys | 4 de quarta a sexta e 5 no sábado e domingo; cada um com celular e uma maquininha | Nenhum: não usam o sistema. Ficam no cadastro de motoboys (nome) para caixa, diária e taxas |
+| Cozinha | Recebe a comanda levada à mão (equipe ainda não levantada) | Nenhum até a fase 3 |
+| Garçons | Ainda não levantado | Nenhum até a fase 4 |
 | Computador do balcão | Imprime | `agente` (conta técnica do agente de impressão) |
 
 Há computador e impressora no balcão (Felipe, 30/10). Falta saber o modelo e a conexão da impressora. O Luan disse que o celular serve, mas que uma tela maior no balcão ajudaria a anotar vários pedidos ao mesmo tempo.
@@ -56,7 +58,7 @@ Há computador e impressora no balcão (Felipe, 30/10). Falta saber o modelo e a
 - **pedido:** o que o cliente pediu. Identificado na noite pelo código.
 - **código:** os 4 últimos dígitos do telefone do cliente.
 - **saída:** uma ida do motoboy para entregar um pedido. Um pedido que volta e sai de novo tem duas saídas.
-- **comanda:** o papel do pedido. Na fase 1 ainda é escrito à mão; a partir da fase 2 é impresso pelo sistema.
+- **comanda:** o papel do pedido. Com o sistema, é impressa ao autorizar o pedido; à mão, só quando o sistema cair.
 - **caixa do motoboy:** o caixa de um motoboy numa noite, incluindo o troco inicial de R$ 80 que ele leva.
 - **acerto:** o fechamento do caixa do motoboy com o Luan no fim da noite.
 - **liquidação:** como o Luan paga o motoboy. Primeiro sai do caixa inicial dele; o que passar sai do caixa da empresa e fica registrado.
@@ -86,23 +88,23 @@ Há computador e impressora no balcão (Felipe, 30/10). Falta saber o modelo e a
 - **ENT2 Taxa gravada.** A taxa fica gravada na saída. Mudar a tabela não altera saídas antigas.
 - **ENT3 Taxa do motoboy.** O motoboy recebe a mesma taxa que o cliente paga.
 - **ENT4 Taxa por saída.** Pedido que volta e sai de novo gera outra taxa. Cada saída tem o seu motoboy.
-- **ENT5 Estados da saída.** Separada para um motoboy → em rota → entregue ou voltou.
+- **ENT5 Estados da saída.** A saída nasce quando o Luan despacha e conta como entregue, a não ser que ele marque "Voltou" (decisão 0007).
   - Saída que voltou: a taxa conta e os valores do pedido não.
   - Pedido cuja saída voltou termina reentregue (nova saída), retirado ou cancelado.
-- **ENT6 Despacho.** Por ordem de balcão. O Luan pode separar pedidos para um motoboy que avisou que está voltando. O aviso de retorno é opcional.
-- **ENT7 Localização.** Chega como pino do WhatsApp ou link do Google Maps, ou às vezes como endereço escrito. Fica guardada no cliente para o próximo pedido. Localização faltando é exceção e fica sinalizada.
-- **ENT8 Privacidade.** Cada motoboy vê só as próprias entregas.
+- **ENT6 Despacho.** Por ordem de balcão. O Luan registra no sistema quem levou cada pedido. Separar um pedido para quem está voltando e o aviso de retorno ("volto em 5") continuam fora do sistema, no balcão e no grupo de entregas.
+- **ENT7 Localização.** Chega como pino do WhatsApp ou link do Google Maps, ou às vezes como endereço escrito. Fica guardada no cliente para o próximo pedido e sai na comanda como QR do Maps. Localização faltando é exceção: a comanda sai com "SEM LOCALIZAÇÃO", e a localização vai ao motoboy pelo grupo, como hoje.
+- **ENT8 Privacidade.** O motoboy não acessa o sistema. Telefone e endereço do cliente vão para ele só na comanda das entregas dele.
 
 ### Pagamento (PAG)
 - **PAG1 Formas.** Dinheiro, cartão, Pix na maquininha, Pix antecipado e crédito do cliente.
 - **PAG2 Misto.** Um pedido pode ter vários pagamentos, em qualquer combinação. A soma é igual ao total.
-- **PAG3 Previsto e real.** A forma anotada é a prevista. A real é confirmada pelo motoboy na porta ou, na falta disso, no acerto.
+- **PAG3 Previsto e real.** A forma anotada é a prevista e sai na comanda. Se o cliente paga de outro jeito, o motoboy anota a forma real na comanda, e o Luan registra "Trocou a forma" no acerto (ou antes, se o motoboy avisar). Sem a troca registrada, vale a prevista, e a diferença aparece no dinheiro contado.
 - **PAG4 Troco por Pix.** Só existe em pagamento com parte em dinheiro. O valor fica com o motoboy e entra no dinheiro a devolver.
-- **PAG5 Pix antecipado.** Só vale como pago depois de confirmado: à mão pelo Luan na fase 1, automaticamente a partir da integração Pix. Até lá, o motoboy vê "Pix não confirmado" e quanto falta cobrar.
+- **PAG5 Pix antecipado.** Só vale como pago depois de confirmado: à mão pelo Luan ("caiu"), automaticamente só se a integração Pix entrar. A comanda sai "PIX PAGO" se já caiu na hora da impressão; senão, "PIX: CONFERIR", e o Luan confere e avisa o motoboy ao entregar a comanda (Felipe, 30/10).
 - **PAG6 Pix na hora.** É sempre feito na maquininha.
 - **PAG7 Maquininha.** Cada motoboy tem a sua. Cada transação precisa casar com um pagamento de uma saída dele.
-- **PAG8 Cobrança em dobro.** Quem resolve é a gerente. O cliente escolhe receber de volta por Pix ou como crédito. O sistema registra o caso e a devolução.
-- **PAG9 Crédito.** Não tem validade. Fica ligado ao telefone completo e é usado como forma de pagamento. Como o Pix antecipado, não passa pela mão do motoboy.
+- **PAG8 Cobrança em dobro.** Quem resolve é a gerente. O cliente escolhe receber de volta por Pix ou como crédito. **Fora do sistema por enquanto** (Felipe, 30/10): a gerente resolve à mão, como hoje.
+- **PAG9 Crédito.** Não tem validade. Fica ligado ao telefone completo e é usado como forma de pagamento. Como o Pix antecipado, não passa pela mão do motoboy. **Fora do sistema por enquanto** (Felipe, 30/10).
 
 ### Acerto (ACE)
 - **ACE1 Caixa inicial.** R$ 80 por padrão, editável na noite. É devolvido no acerto.
@@ -113,11 +115,11 @@ Há computador e impressora no balcão (Felipe, 30/10). Falta saber o modelo e a
 - **ACE6 Sobra.** Fica retida, sem ir para o motoboy nem para o caixa, sem prazo, até a origem ser descoberta.
 - **ACE7 Ordem.** O acerto segue a ordem de chegada dos motoboys no início da noite.
 - **ACE8 Comanda perdida.** Não pode travar o acerto. Tudo o que o acerto precisa está no sistema, e "papel conferido" mostra quais comandas faltam.
-- **ACE9 Confirmação.** Só a expedição, a gerente ou o admin confirmam o acerto. A confirmação grava os valores do momento e trava o caixa e as saídas para o motoboy. Reabrir é do admin.
+- **ACE9 Confirmação.** Só a expedição, a gerente ou o admin confirmam o acerto. A confirmação grava os valores do momento, trava o caixa e as saídas e imprime o recibo, que o motoboy confere e assina. Reabrir é do admin, com motivo.
 - **ACE10 Conta à mostra.** Toda tela de acerto mostra de onde vem cada número.
 
 ### Operação (OPE)
-- **OPE1 Fase ligada por noite.** Cada fase pode ser ligada só para algumas pessoas ou algumas noites, para rodar junto com o papel.
+- **OPE1 Interruptor.** Cada funcionalidade pode ser desligada em `config`, sem deploy, para a noite seguir no papel naquela parte. Rodar junto com o papel nas primeiras noites é combinado na implantação, sem trava por pessoa.
 - **OPE2 Registro de mudanças.** Toda mudança em pagamento, saída e acerto guarda quem fez e quando.
 - **OPE3 Dinheiro só se acrescenta.** Nenhum valor de pagamento, acerto, sobra ou falta é apagado ou sobrescrito. Uma correção é um lançamento de ajuste, com motivo, quem e quando.
 - **OPE4 Implantação fora do turno.** Nada vai para produção entre 17h e 01h de quarta a domingo. De preferência, segunda e terça.
@@ -126,8 +128,8 @@ Há computador e impressora no balcão (Felipe, 30/10). Falta saber o modelo e a
 
 | Fase | O que entra | Papel que substitui | Spec |
 |---|---|---|---|
-| 1 | Caixa do motoboy, expedição na tela, painel do Luan e acerto | Folha de colunas e soma manual | `fases/F1-acerto.md` |
-| 2 | Pedido digitado pelo atendente, clientes, cardápio, comanda impressa, despacho e localização no sistema | Comanda escrita à mão e grupo de entregas | `fases/F2-pedido.md` |
+| 1 (MVP) | Despacho e acerto no painel do Luan | Folha de colunas e soma manual | `fases/F1-acerto.md` |
+| 2 (MVP) | Pedido digitado pelo atendente, clientes, cardápio e comanda impressa | Comanda escrita à mão | `fases/F2-pedido.md` |
 | 3 | Impressão automática na cozinha (e tela da cozinha, opcional) | Comanda levada à mão até a cozinha | `fases/F3-a-F6.md` |
 | 4 | Garçom pelo celular | Comanda de mesa | `fases/F3-a-F6.md` |
 | 5 | Caixa geral: abertura, sangria, fechamento e nota fiscal | Fechamento manual | `fases/F3-a-F6.md` |
@@ -135,15 +137,15 @@ Há computador e impressora no balcão (Felipe, 30/10). Falta saber o modelo e a
 | Fora do plano | Estoque e custo por pizza (CMV) | Nada | A Mel já controla o estoque fora do sistema. Integrar isso é complexo demais por enquanto (Felipe, 30/10) |
 | Integrações | Pix automático, conciliação da maquininha, NFC-e | Conferência manual | `fases/F3-a-F6.md` |
 
-**Foco atual (Felipe, 30/10): atendimento e despacho de entregas.** O MVP e a fase 2 são o plano. As fases 3 a 6 ficam sem data e só começam quando o Felipe pedir.
+**Foco atual (Felipe, 30/10): atendimento e despacho de entregas.** As fases 3 a 6 ficam sem data e só começam quando o Felipe pedir.
 
-**MVP** (`MVP.md`): a fase 1 inteira, mais a base técnica e a impressão sem fio do recibo do acerto. Depois dele vem a bancada de testes (`BANCADA-TESTES.md`) e então a fase 2.
+**MVP** (`MVP.md`): as fases 1 e 2 enxutas, juntas, mais a base técnica e a impressão sem fio. O pedido nasce digitado, a comanda sai impressa, e o Luan despacha e faz o acerto no painel. O motoboy não usa o sistema. Depois do MVP vem a bancada de testes enxuta (`BANCADA-TESTES.md`).
 
-A fase 1 roda com a comanda ainda escrita à mão: o motoboy lança cada comanda ao pegar a entrega. Na fase 2, o pedido já nasce no sistema e o motoboy só toca para pegar.
+**Como a noite funciona depois do sistema:** guia para a equipe, gerado a partir destas regras ("Como a Mel funciona com o sistema"). Mudou uma regra aqui, atualize o guia.
 
 ## 8. Perguntas em aberto
 
-**Bloqueiam a fase 2:**
+**Bloqueiam o MVP:**
 1. Quais necessidades da Mel o Saipos não atendeu? Liste exemplos concretos: cada uma vira requisito ou teste. (Já se sabe que não atendeu às necessidades da empresa e que os clientes não se adaptaram ao pedido automático.)
 2. Qual é o modelo da impressora do balcão e como ela se liga: USB ou rede? Ela imprime na cozinha também? (Já se sabe que há computador e impressora.)
 3. O que é "autorizar a produção" e como acontece hoje?
@@ -163,7 +165,11 @@ A fase 1 roda com a comanda ainda escrita à mão: o motoboy lança cada comanda
 13. Há desconto, cupom ou fidelidade? Quem decide a promoção da noite?
 14. Quantas mesas, garçons e pessoas na cozinha? Como a conta da mesa é fechada?
 15. Promoção: o desconto vale por pizza? Vale no meio a meio de duas tradicionais?
-16. Como a comanda diferencia Pix já pago de Pix na hora?
+16. ~~Como a comanda diferencia Pix já pago de Pix na hora?~~ Resolvida (30/10): a comanda impressa diz "PIX PAGO" ou "PIX: CONFERIR".
 
 **Mais à frente:**
 17. Quem mantém o sistema depois de pronto?
+
+**Erros previstos:**
+18. Área errada descoberta depois da entrega (o cliente pagou a taxa de Aragarças, mas era Barra): o motoboy recebe a taxa cobrada ou a da área certa? E o cliente?
+19. Os motoboys concordam em anotar na comanda a forma real quando o cliente paga diferente?
