@@ -54,7 +54,8 @@ function ehTransitorio(erro: unknown): boolean {
 export class Motor {
   private trava: Promise<unknown> = Promise.resolve();
   private canal: RealtimeChannel | undefined;
-  private noiteDoCanal: string | undefined;
+  /** Noite que o canal do Realtime escuta (null: só as tabelas gerais). */
+  private noiteDoCanal: string | null | undefined;
   private agendado: ReturnType<typeof setTimeout> | undefined;
   private relogio: ReturnType<typeof setInterval> | undefined;
   private realtimeOk = false;
@@ -109,6 +110,7 @@ export class Motor {
   private async enviarAgora() {
     const { banco, supabase } = this.o;
     let recusou = false;
+    let enviou = false;
     for (;;) {
       const op = await banco.fila.orderBy('seq').first();
       if (!op) break;
@@ -142,6 +144,7 @@ export class Motor {
         };
       }
       await banco.fila.delete(op.id);
+      enviou = true;
       if (resposta.status === 'recusada') {
         recusou = true;
         const motivo = resposta.motivo ?? 'Operação recusada.';
@@ -156,7 +159,13 @@ export class Motor {
       }
     }
     // Recusada: o aparelho desfaz o efeito local baixando a verdade do servidor.
-    if (recusou) await this.baixarAgora();
+    // Noite nova aberta neste aparelho: baixa para o Realtime passar a escutar a noite certa.
+    if (recusou || (enviou && (await this.noiteLocal()) !== this.noiteDoCanal)) await this.baixarAgora();
+  }
+
+  private async noiteLocal(): Promise<string | null> {
+    const noites = (await this.o.banco.noites.toArray()).sort((a, b) => b.data.localeCompare(a.data));
+    return (noites.find((n) => !n.fechada_em) ?? noites[0])?.id ?? null;
   }
 
   private async baixarAgora(): Promise<boolean> {
@@ -202,7 +211,7 @@ export class Motor {
       });
       this.ultimaBaixa = Date.now();
       await banco.gravarMeta('ultima_sinc', new Date().toISOString());
-      if (noite) this.assinar(noite.id);
+      this.assinar(noite?.id ?? null);
       return true;
     } catch (erro) {
       if (!ehFalhaDeRede(erro) && !ehTransitorio(erro)) this.o.aoErro?.(erro, 'baixar noite');
@@ -215,22 +224,29 @@ export class Motor {
     this.agendado = setTimeout(() => void this.baixar(), 400);
   }
 
-  private assinar(noiteId: string) {
+  /** Escuta desde o login: as tabelas gerais sempre; as da noite quando há uma. Nada de dinheiro é apagado (OPE3). */
+  private assinar(noiteId: string | null) {
     if (this.noiteDoCanal === noiteId && this.canal) return;
     void this.canal?.unsubscribe();
-    const canal = this.o.supabase.channel(`noite-${noiteId}`);
-    for (const table of TABELAS_DA_NOITE) {
+    const canal = this.o.supabase.channel(`noite-${noiteId ?? 'geral'}`);
+    for (const table of noiteId ? TABELAS_DA_NOITE : []) {
       canal.on('postgres_changes', { event: '*', schema: 'public', table, filter: `noite_id=eq.${noiteId}` }, () =>
         this.agendarBaixa(),
       );
-      // Apagar não aceita filtro no Realtime.
-      canal.on('postgres_changes', { event: 'DELETE', schema: 'public', table }, () => this.agendarBaixa());
     }
     for (const table of TABELAS_GERAIS) {
       canal.on('postgres_changes', { event: '*', schema: 'public', table }, () => this.agendarBaixa());
     }
     canal.subscribe((status) => {
       this.realtimeOk = status === 'SUBSCRIBED';
+      // Canal caiu (Realtime reiniciando, rede): solta e deixa o relógio recriar e baixar de novo.
+      // Só o canal atual: remover dispara CLOSED de novo, e o canal antigo já foi trocado.
+      const caiu = status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED';
+      if (caiu && this.canal === canal) {
+        this.canal = undefined;
+        this.noiteDoCanal = undefined;
+        void this.o.supabase.removeChannel(canal);
+      }
     });
     this.canal = canal;
     this.noiteDoCanal = noiteId;
@@ -250,11 +266,11 @@ export class Motor {
     await this.enviar();
     await this.baixar();
     clearInterval(this.relogio);
-    // Sem Realtime por mais de 1 minuto, baixa de novo (ARQUITETURA, Funcionar sem internet).
+    // Sem Realtime, baixa de novo a cada 10 s; com Realtime, a cada minuto (ARQUITETURA, Funcionar sem internet).
     this.relogio = setInterval(() => {
       void this.enviar();
       if (!this.realtimeOk || Date.now() - this.ultimaBaixa > 60_000) void this.baixar();
-    }, 20_000);
+    }, 10_000);
     if (typeof window !== 'undefined') {
       window.addEventListener('online', this.aoVoltarInternet);
       document.addEventListener('visibilitychange', this.aoVoltarParaTela);

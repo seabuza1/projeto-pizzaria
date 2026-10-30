@@ -43,19 +43,31 @@ export async function ler<T>(tk: string, caminho: string): Promise<T> {
   return (await r.json()) as T;
 }
 
-/** Banco limpo e uma noite aberta com o caixa do João. */
-export async function noiteComCaixaDoJoao() {
+/** Banco limpo, com as contas do seed. */
+export async function bancoLimpo() {
   execFileSync('pnpm', ['exec', 'supabase', 'db', 'reset'], {
     cwd: new URL('../../..', import.meta.url).pathname,
     stdio: 'ignore',
   });
-  // O reset reinicia os serviços; espera a API voltar.
-  for (let i = 0; i < 60; i++) {
+  // O reset reinicia os serviços; espera a API e o Realtime voltarem.
+  for (let i = 0; i < 90; i++) {
+    let realtime = '';
     try {
-      if ((await fetch(`${API}/auth/v1/health`, { headers: { apikey: ANON } })).ok) break;
+      realtime = execFileSync('docker', ['inspect', '-f', '{{.State.Health.Status}}', 'supabase_realtime_mel-pdv'], {
+        encoding: 'utf8',
+      }).trim();
+    } catch {}
+    try {
+      const auth = await fetch(`${API}/auth/v1/health`, { headers: { apikey: ANON } });
+      if (auth.ok && realtime === 'healthy') break;
     } catch {}
     await new Promise((r) => setTimeout(r, 1000));
   }
+}
+
+/** Banco limpo e uma noite aberta com o caixa do João. */
+export async function noiteComCaixaDoJoao() {
+  await bancoLimpo();
   const luan = await token('luan@mel.test');
   const noiteId = randomUUID();
   await op(luan, 'abrir_noite', { noite_id: noiteId });

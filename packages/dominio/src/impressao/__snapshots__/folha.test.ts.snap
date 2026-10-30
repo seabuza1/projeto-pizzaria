@@ -1,0 +1,53 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`folha da noite > marcação estável (snapshot) 1`] = `
+"^MEL PIZZARIA
+FOLHA DA NOITE
+-
+Noite: 16/10/2026 | Impressa às 23:59
+-
+{width: auto}
+"1 Felipe" | caixa 80,00
+|~~3557~~din
+|~~3595~~din ->3,00
+|~~8094~~voltou
+{width: *,10}
+5 entregas, 1 voltou |
+Devolve | 243,00
+Recebe | 86,00
+Acerto confirmado: pago | 86,00
+-
+{width: auto}
+"2 João" | caixa 80,00
+|~~8498~~pix+din
+|~~1693~~cartão (em rota) *
+{width: *,10}
+2 entregas |
+Devolve | 117,00
+Recebe | 57,00
+Acerto pendente |
+-
+{width: auto}
+"PIX"
+{width: *,10}
+~~0017~~caiu | 60,00
+~~8498~~conferir | 20,00
+-
+{width: auto}
+"RESUMO"
+{width: *,10}
+Dinheiro | 197,00
+Troco por Pix | 3,00
+Cartão | 90,00
+Pix na maquininha | 72,00
+Pix antecipado | 140,00
+-
+Pago aos motoboys | 86,00
+Retirado do caixa da empresa | 6,00
+Foi para a empresa | 163,00
+Entregas | 7
+{width: auto}
+|Atenção: 1 caixa(s) sem acerto
+=
+"
+`;

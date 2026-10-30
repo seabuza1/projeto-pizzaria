@@ -1,0 +1,41 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`recibo do acerto (MVP.md, 80 mm e 48 colunas) > é igual ao recibo do MVP para a noite base com contado 243 1`] = `
+"^MEL PIZZARIA
+ACERTO DO MOTOBOY
+-
+Noite: 16/10/2026 | Motoboy: Felipe (1)
+Confirmado por: Luan | 23:48
+-
+|Entregas: 5 (Barra 2, Aragarças 2, Pontal 1)
+|Voltaram: 1 (8094)
+|Pix antecipado: 60,00 (0017, caiu)
+-
+{width: *,10}
+Caixa inicial | 80,00
+Dinheiro das vendas | 160,00
+Troco por Pix | 3,00
+"\\= Devolver" | 243,00
+Contado | 243,00
+Diferença | 0,00
+-
+Diária | 30,00
+Taxas | 56,00
+"\\= Receber" | 86,00
+-
+Pago do caixa dele | 80,00
+Retirado do caixa da empresa | 6,00
+Vai para a empresa | 163,00
+-
+Maquininha esperada | 162,00
+~~2672~~cartão | 90,00
+~~0910~~Pix na maquininha | 72,00
+{width: auto}
+|Papéis faltando: nenhum
+-
+
+
+|Motoboy: \\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_~~~Luan: \\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_
+=
+"
+`;

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { liquidar } from './acerto';
 import { centavos as c } from './dinheiro';
-import { agruparPorCidade, filtrarPeriodo, historicoCsv, resumirNoite, resumirPeriodo } from './resumo';
+import { agruparPorCidade, filtrarPeriodo, historicoCsv, noiteCsv, resumirNoite, resumirPeriodo } from './resumo';
 
 const area = (entregues: number, voltaram: number, taxas: number) => ({ entregues, voltaram, taxas: c(taxas) });
 
@@ -96,5 +96,22 @@ describe('entregas por cidade', () => {
         (a) => cidade[a] ?? a,
       ),
     ).toEqual({ 'Barra do Garças': area(3, 1, 5100), Aragarças: area(2, 0, 1000) });
+  });
+});
+
+describe('exportar a noite (CSV)', () => {
+  it('uma linha por motoboy, na ordem de chegada', () => {
+    const conta = { ...contaA, caixaInicial: c(8000), devolver: c(24300), maquininha: c(16200), receber: c(8600) };
+    expect(
+      noiteCsv('2026-10-16', [
+        { ordem: 2, motoboy: 'João; o novo', conta: { ...conta, liquidacao: null }, confirmado: false },
+        { ordem: 1, motoboy: 'Felipe', conta, confirmado: true },
+      ]),
+    ).toBe(
+      'noite;ordem;motoboy;caixa_inicial;entregas;voltaram;devolver;maquininha;receber;pix_antecipado;' +
+        'contado;pagar;do_caixa_dele;retirado_caixa_empresa;vai_para_empresa;acerto\n' +
+        '16/10/2026;1;Felipe;80,00;5;1;243,00;162,00;86,00;60,00;240,00;83,00;80,00;3,00;160,00;confirmado\n' +
+        '16/10/2026;2;João, o novo;80,00;5;1;243,00;162,00;86,00;60,00;;;;;;pendente\n',
+    );
   });
 });

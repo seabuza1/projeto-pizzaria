@@ -10,18 +10,10 @@ import {
   resumirPeriodo,
 } from '@mel/dominio';
 import { useEffect, useMemo, useState } from 'react';
+import { baixarArquivo } from '../../compartilhado/arquivo';
 import { Botao, Chip, Folha, Linha, reais, Secao } from '../../compartilhado/ui';
 import { carregarHistorico, type NoiteHistorico, useAreas, useConfig } from '../../data/repo';
 import { ContaDetalhada } from '../acerto/ContaDetalhada';
-
-function baixarCsv(nome: string, conteudo: string) {
-  const url = URL.createObjectURL(new Blob([`﻿${conteudo}`], { type: 'text/csv;charset=utf-8' }));
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = nome;
-  a.click();
-  URL.revokeObjectURL(url);
-}
 
 export function Historico({ motoboyId }: { motoboyId: string }) {
   const [noites, setNoites] = useState<NoiteHistorico[] | null>(null);
@@ -95,7 +87,7 @@ export function Historico({ motoboyId }: { motoboyId: string }) {
         {doPeriodo.length === 0 && <p className="text-sm text-apagado">Nenhuma noite neste período.</p>}
       </Secao>
 
-      <Botao onClick={() => baixarCsv(`mel-historico-${periodo}-${hoje}.csv`, historicoCsv(doPeriodo))}>
+      <Botao onClick={() => baixarArquivo(`mel-historico-${periodo}-${hoje}.csv`, historicoCsv(doPeriodo))}>
         Exportar CSV
       </Botao>
 

@@ -8,7 +8,7 @@ test('o motoboy lança, marca entregue e vê a conta do acerto', async ({ page }
 
   await lancar(page, '3557', '113', /^Barra/, 'Dinheiro');
   await lancar(page, '2672', '90', /^Pontal/, 'Cartão');
-  await page.getByRole('button', { name: 'Entregue' }).first().click();
+  await page.getByRole('button', { name: 'Entregue', exact: true }).first().click();
 
   const topo = page.locator('header');
   await expect(topo).toContainText('R$ 193,00');
@@ -35,7 +35,7 @@ test('em modo avião, lança e marca entregue; com a internet de volta, tudo sob
   await context.setOffline(true);
   await lancar(page, '0910', '72', /^Barra/, 'Pix maq.');
   await lancar(page, '3595', '47', /^Aragarças/, 'Dinheiro');
-  await page.getByRole('button', { name: 'Entregue' }).first().click();
+  await page.getByRole('button', { name: 'Entregue', exact: true }).first().click();
   await expect(page.getByText('3 alterações esperando internet')).toBeVisible();
   await expect(page.locator('header')).toContainText('R$ 127,00');
   expect(await ler<unknown[]>(luan, 'pedidos?select=id')).toEqual([]);

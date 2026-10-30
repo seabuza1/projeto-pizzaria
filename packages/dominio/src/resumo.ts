@@ -127,3 +127,45 @@ export function agruparPorCidade(
 ): Record<string, TotalArea> {
   return somarAreas(Object.entries(porArea).map(([area, t]) => ({ porArea: { [cidadeDe(area)]: { ...t } } })));
 }
+
+export interface LinhaDaNoite {
+  ordem: number;
+  motoboy: string;
+  conta: Pick<
+    ContaAcerto,
+    'caixaInicial' | 'entregues' | 'voltaram' | 'devolver' | 'maquininha' | 'receber' | 'pixAntecipado' | 'liquidacao'
+  >;
+  confirmado: boolean;
+}
+
+/** Contingência (ARQUITETURA, Robustez): "Exportar a noite (CSV)" com os dados do aparelho, sem internet. */
+export function noiteCsv(data: string, linhas: readonly LinhaDaNoite[]): string {
+  const v = (c: Centavos | undefined) => (c === undefined ? '' : formatarValor(c));
+  const cabecalho =
+    'noite;ordem;motoboy;caixa_inicial;entregas;voltaram;devolver;maquininha;receber;pix_antecipado;' +
+    'contado;pagar;do_caixa_dele;retirado_caixa_empresa;vai_para_empresa;acerto';
+  const corpo = [...linhas]
+    .sort((a, b) => a.ordem - b.ordem)
+    .map((l) => {
+      const q = l.conta.liquidacao ?? undefined;
+      return [
+        formatarData(data),
+        l.ordem,
+        l.motoboy.replaceAll(';', ','),
+        v(l.conta.caixaInicial),
+        l.conta.entregues,
+        l.conta.voltaram,
+        v(l.conta.devolver),
+        v(l.conta.maquininha),
+        v(l.conta.receber),
+        v(l.conta.pixAntecipado),
+        v(q?.dinheiroContado),
+        v(q?.pagar),
+        v(q?.doCaixaDele),
+        v(q?.retiradoCaixaEmpresa),
+        v(q?.vaiParaEmpresa),
+        l.confirmado ? 'confirmado' : 'pendente',
+      ].join(';');
+    });
+  return `${cabecalho}\n${corpo.map((l) => `${l}\n`).join('')}`;
+}

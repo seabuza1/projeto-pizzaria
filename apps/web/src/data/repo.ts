@@ -506,3 +506,16 @@ export async function carregarHistorico(motoboyId: string): Promise<NoiteHistori
 /** Recusas recentes do servidor, para a tela mostrar o motivo. */
 export const useRecusas = () =>
   useLiveQuery(async () => (await banco.recusas.orderBy('em').reverse().limit(5).toArray()) ?? [], [], []);
+
+/** Coluna PIX: os Pix antecipados que valem na noite (os da saída mais recente de cada pedido). */
+export function pixDaNoite(dados: DadosNoite): { pagamento: Pagamento; pedido: Pedido; caixaId: string }[] {
+  const ultima = new Map<string, Saida>();
+  for (const s of dados.saidas) if (!s.cancelada_em) ultima.set(s.pedido_id, s);
+  return dados.pedidos.flatMap((pedido) => {
+    const saida = ultima.get(pedido.id);
+    if (!saida || pedido.estado === 'cancelado') return [];
+    return pagamentosVigentes(saida, dados.pagamentos)
+      .filter((p) => p.forma === 'pix_antecipado')
+      .map((pagamento) => ({ pagamento, pedido, caixaId: saida.caixa_id }));
+  });
+}
