@@ -37,6 +37,7 @@ Hoje, anotar um pedido leva de 3 a 5 minutos (Luan). Meta: o tempo do atendente 
   - Locais: pino (latitude e longitude), link do Maps, endereço escrito, referência e área.
   - Ao digitar o telefone, aparecem o nome, o último local e os últimos 5 pedidos.
 - **Importação:** clientes entram aos poucos, conforme pedem. Não há base antiga para importar.
+- **Cardápio validado:** o JSON é conferido por um schema Zod (`CardapioSchema`, em `packages/db`) num teste do domínio. O hook de testes roda esse teste quando `docs/dados/` muda, e o seed não roda com um cardápio inválido.
 
 ### 2b. Tela de pedido do atendente (`/atendimento`)
 
@@ -101,7 +102,12 @@ Hoje, anotar um pedido leva de 3 a 5 minutos (Luan). Meta: o tempo do atendente 
 - **"Avisar":** abre a conversa com a mensagem pronta ("Seu pedido 3557 está pronto para retirada").
 - Ao retirar, marcar como retirado e registrar o pagamento do balcão.
 
-### 2f. Promoção da noite
+### 2f. Troca rápida de usuário no balcão
+- O computador do balcão fica com uma sessão aberta.
+- Cada pessoa (atendente, Luan, gerente) entra com um PIN de 4 a 6 dígitos para que cada pedido fique no nome de quem fez.
+- O PIN só vale naquele computador, e o sistema volta para a tela de PIN depois de 5 minutos parado.
+
+### 2g. Promoção da noite
 - Ao abrir a noite, a gerente ou a expedição define o desconto (de R$ 3 a R$ 23), ou "sem promoção".
 - O domínio aplica a promoção conforme PED4.
 
@@ -135,7 +141,7 @@ total                        = itens + taxa da área (0 na retirada)            
 
 - `clientes` e `cliente_locais`.
 - `cardapio_faixas`, `cardapio_sabores`, `cardapio_bordas`, `cardapio_adicionais`, `cardapio_bebidas` e `cardapio_combos`.
-- `pedido_itens`, com o preço unitário gravado.
+- `pedido_itens`, com uma fotografia do momento da venda: nome, faixa cobrada, preço unitário e desconto. Mudar o cardápio não altera pedidos nem relatórios antigos (o mesmo princípio da taxa, ENT2).
 - `pedidos`: estados novos e a trava de atendimento.
 - `impressoes`, `creditos` e `cobrancas_dobro`.
 - **Acesso:**
@@ -145,9 +151,9 @@ total                        = itens + taxa da área (0 na retirada)            
 
 ## Ordem de construção
 
-1. `preco.ts` com P1 a P11 passando.
+1. `CardapioSchema` validando `docs/dados/cardapio-mel.json`, e `preco.ts` com P1 a P11 passando.
 2. Migrações do cardápio e dos clientes, e seed a partir do JSON.
-3. Tela de pedido: telefone, trava, itens, entrega, pagamento, total, resumo e autorização.
+3. Tela de pedido: troca rápida por PIN, telefone, trava, itens, entrega, pagamento, total, resumo e autorização.
 4. Agente de impressão e comanda impressa (testar com impressora de rede de verdade).
 5. Despacho: fila de prontos, pegar entrega, separar e app do motoboy com Maps e WhatsApp.
 6. Retiradas.

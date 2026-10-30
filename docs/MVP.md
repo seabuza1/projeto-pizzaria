@@ -28,7 +28,12 @@ O primeiro produto que roda numa noite de verdade. Ele é a fase 1 inteira (`fas
 - **ambiente** em `config` (`producao` ou `teste`). Em teste, uma faixa amarela fixa diz "AMBIENTE DE TESTE" em todas as telas. É o que a bancada de testes vai usar (`BANCADA-TESTES.md`);
 - **interfaces das integrações já desenhadas,** mesmo sem uso: `ProvedorPix` e `Impressora`. A bancada troca as implementações reais por falsas sem mexer nas telas;
 - atualização do PWA: quando há versão nova, o app avisa "Atualizar" e nunca atualiza no meio de um lançamento;
-- registro de erros do front e das funções (tabela `erros` ou um serviço como o Sentry), sem dados de cliente.
+- registro de erros do front e das funções (tabela `erros` ou um serviço como o Sentry), sem dados de cliente, e o botão "Relatar problema";
+- horário do servidor nas operações, `versao_op` e versão mínima do app (ARQUITETURA, Robustez);
+- dinheiro só se acrescenta: correção é ajuste com motivo (OPE3);
+- MFA para `admin` e `gerente`;
+- batimento do agente de impressão e "Imprimir folha agora" e "Exportar a noite (CSV)" funcionando sem internet;
+- `docs/O-QUE-MUDOU.md` e os padrões de `docs/PADROES.md` desde o primeiro commit.
 
 **3. Impressão sem fio:**
 - **Agente** (`apps/agente`) no computador do balcão, com a conta de papel `agente`.
@@ -82,8 +87,9 @@ Fica para depois:
 - pedido digitado pelo atendente, cardápio, clientes e comanda impressa (fase 2);
 - cozinha, garçom e caixa geral;
 - Pix automático, conciliação da maquininha, NFC-e e WhatsApp API;
-- crédito e cobrança em dobro;
-- leitura por foto.
+- crédito e cobrança em dobro.
+
+A leitura de comanda por foto saiu do projeto: a partir da fase 2 a comanda já nasce digitada. Numa noite sem sistema, a comanda é escrita à mão e lançada depois pelo lançamento rápido da fase 1.
 
 ## Segurança (checklist do MVP)
 

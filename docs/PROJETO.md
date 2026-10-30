@@ -119,6 +119,8 @@ Há computador e impressora no balcão (Felipe, 30/10). Falta saber o modelo e a
 ### Operação (OPE)
 - **OPE1 Fase ligada por noite.** Cada fase pode ser ligada só para algumas pessoas ou algumas noites, para rodar junto com o papel.
 - **OPE2 Registro de mudanças.** Toda mudança em pagamento, saída e acerto guarda quem fez e quando.
+- **OPE3 Dinheiro só se acrescenta.** Nenhum valor de pagamento, acerto, sobra ou falta é apagado ou sobrescrito. Uma correção é um lançamento de ajuste, com motivo, quem e quando.
+- **OPE4 Implantação fora do turno.** Nada vai para produção entre 17h e 01h de quarta a domingo. De preferência, segunda e terça.
 
 ## 7. Fases
 
@@ -130,8 +132,10 @@ Há computador e impressora no balcão (Felipe, 30/10). Falta saber o modelo e a
 | 4 | Garçom pelo celular | Comanda de mesa | `fases/F3-a-F6.md` |
 | 5 | Caixa geral: abertura, sangria, fechamento e nota fiscal | Fechamento manual | `fases/F3-a-F6.md` |
 | 6 | Pedido pelo link (opcional para o cliente) | Nada: é um canal a mais | `fases/F3-a-F6.md` |
-| Extra | Leitura da comanda por foto (plano B, só enquanto existir comanda à mão) | Digitação da comanda | `fases/extra-leitura-foto.md` |
+| Fora do plano | Estoque e custo por pizza (CMV) | Nada | A Mel já controla o estoque fora do sistema. Integrar isso é complexo demais por enquanto (Felipe, 30/10) |
 | Integrações | Pix automático, conciliação da maquininha, NFC-e | Conferência manual | `fases/F3-a-F6.md` |
+
+**Foco atual (Felipe, 30/10): atendimento e despacho de entregas.** O MVP e a fase 2 são o plano. As fases 3 a 6 ficam sem data e só começam quando o Felipe pedir.
 
 **MVP** (`MVP.md`): a fase 1 inteira, mais a base técnica e a impressão sem fio do recibo do acerto. Depois dele vem a bancada de testes (`BANCADA-TESTES.md`) e então a fase 2.
 

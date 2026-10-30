@@ -1,5 +1,8 @@
-// PreToolUse (Bash): bloqueia comandos que leem segredos ou mexem na produção sem querer.
-// Saída 2 bloqueia o comando e mostra o motivo ao Claude. Funciona no Windows e no Linux.
+// PreToolUse (Bash): bloqueia comandos que leem segredos, carregam um segredo escrito no próprio comando
+// ou mexem na produção sem querer. Saída 2 bloqueia o comando e mostra o motivo ao Claude.
+// Funciona no Windows e no Linux.
+import { acharSegredo } from './padroes-segredos.mjs';
+
 let entrada = '';
 for await (const pedaco of process.stdin) entrada += pedaco;
 
@@ -34,6 +37,14 @@ const regras = [
     motivo: 'Push forçado reescreve o histórico. Não faça.',
   },
 ];
+
+const segredo = acharSegredo(comando);
+if (segredo) {
+  process.stderr.write(
+    `Bloqueado: o comando tem ${segredo} escrito nele. Use uma variável de ambiente já definida, sem mostrar o valor.`,
+  );
+  process.exit(2);
+}
 
 for (const { teste, motivo } of regras) {
   if (teste.test(comando)) {

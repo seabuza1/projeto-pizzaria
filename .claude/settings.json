@@ -50,7 +50,12 @@
       "Read(./certificados/**)",
       "Read(./backups/**)",
       "Bash(supabase db reset --linked *)",
-      "Bash(git push --force *)"
+      "Bash(git push --force *)",
+      "Edit(./**/.env)",
+      "Edit(./**/.env.local)",
+      "Edit(./**/.env.*.local)",
+      "Edit(./**/.env.production)",
+      "Edit(./**/.env.teste)"
     ]
   },
   "enabledMcpjsonServers": ["supabase"],
@@ -68,6 +73,16 @@
             "type": "command",
             "command": "node",
             "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/protege-segredos.mjs"]
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/segredos-no-codigo.mjs"]
           }
         ]
       }

@@ -1,4 +1,5 @@
-// Stop: se algo em packages/dominio mudou, roda os testes do domínio antes de o Claude encerrar.
+// Stop: se mudou algo em packages/dominio, packages/db ou docs/dados (cardápio), roda os testes do domínio
+// antes de o Claude encerrar. Os testes incluem a validação do cardápio pelo schema Zod.
 // Se falharem, devolve só o fim da saída e o Claude continua corrigindo.
 // Para não entrar em ciclo, desiste depois de 2 bloqueios seguidos na mesma sessão.
 import { execFileSync } from 'node:child_process';
@@ -35,7 +36,7 @@ try {
 } catch {
   process.exit(0);
 }
-if (!/packages[/\\]dominio[/\\]/.test(mudancas)) {
+if (!/(packages[/\\](dominio|db)|docs[/\\]dados)[/\\]/.test(mudancas)) {
   rmSync(contador, { force: true });
   process.exit(0);
 }

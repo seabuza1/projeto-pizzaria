@@ -1,5 +1,7 @@
 # Pedidos e pagamentos: o que outros fizeram e o que serve para a Mel
 
+> **Atualização de 30/10/2026:** a leitura da comanda por foto (porta C) saiu do projeto. Numa noite sem sistema, a comanda é escrita à mão e lançada depois pelo lançamento rápido da fase 1.
+
 Pesquisa de 30/10/2026 (corrigida no mesmo dia: a Mel fica em Aragarças, GO). Base para decidir a fase 2 (pedido) e a conferência automática de Pix e cartão. As fontes estão no fim; os números de fornecedores (Anota AI, Brendi, Efí, Jota) são propaganda deles e estão marcados.
 
 ## Resumo

@@ -4,13 +4,13 @@ Sistema para a Mel Pizzaria (Aragarças, GO), construído aos poucos, uma fase p
 
 ## Leia antes de tudo
 - `docs/MVP.md`: **o que construir agora** e em que ordem.
+- `docs/PADROES.md`: padrões de código (organização, nomes, erros, testes, migrações, dependências). **Siga em todo código.**
 - `docs/PROJETO.md`: a pizzaria, os princípios, as regras de negócio (PED, ENT, PAG, ACE e OPE), as fases e as perguntas em aberto. **As regras valem daqui.**
 - `docs/ARQUITETURA.md`: stack, desenho, offline, impressão, integrações, custos, estrutura do repositório e modelo de dados.
-- `docs/fases/`: a spec de cada fase. Implemente só a fase pedida.
+- `docs/fases/`: a spec de cada fase. Implemente só a fase pedida. **Foco atual: atendimento e despacho** (MVP e fase 2). Não comece as fases 3 a 6 sem o Felipe pedir.
   - `F1-acerto.md`: caixa do motoboy, painel do Luan e acerto.
   - `F2-pedido.md`: pedido digitado, clientes, comanda impressa e despacho.
   - `F3-a-F6.md`: cozinha, garçom, caixa geral, link do cliente e integrações (em nível de roteiro).
-  - `extra-leitura-foto.md`: leitura da comanda por foto (plano B).
 - `docs/BANCADA-TESTES.md`: ambiente controlado com Pix falso, impressora virtual e noite simulada (depois do MVP).
 - `docs/CLAUDE-CODE.md`: ferramentas, hooks, permissões e economia de tokens.
 - `docs/dados/cardapio-mel.json`: o cardápio real, usado para o seed e nos testes.

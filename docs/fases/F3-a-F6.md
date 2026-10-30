@@ -1,5 +1,7 @@
 # Fases 3 a 6 e integrações
 
+**Fora do foco atual.** Primeiro vêm o atendimento e o despacho (MVP e fase 2). Estas fases ficam sem data.
+
 Nível de roteiro: há pouco levantado sobre cozinha, mesas e caixa geral. Antes de cada fase, levantar as perguntas abertas, escrever a spec completa (no formato de `F1-acerto.md`) e só então construir.
 
 ## Fase 3: cozinha
@@ -14,8 +16,13 @@ Nível de roteiro: há pouco levantado sobre cozinha, mesas e caixa geral. Antes
 
 **Objetivo:** pedido de mesa pelo celular do garçom.
 - **Pedido de mesa:** mesa → itens → envia para a cozinha. O pedido da mesa é identificado pelo telefone, como hoje.
-- **Conta da mesa:** parcial, divisão e fechamento no caixa.
-- **Perguntas:** quantas mesas e garçons; como a conta é fechada hoje; se há taxa de serviço.
+- **Vários garçons na mesma mesa:** os itens só se somam, e fechar a conta usa a versão esperada (ver ARQUITETURA, Conflitos e concorrência). Só existe uma conta aberta por mesa.
+- **Conta da mesa** (opções a confirmar com a gerente antes de construir):
+  - parcial a qualquer momento;
+  - divisão por item (cada um paga o que consumiu) ou igual por pessoa;
+  - fechamento no caixa, com as mesmas formas de pagamento das entregas.
+- **Sem taxa de serviço:** a Mel não cobra os 10% (Felipe, 30/10).
+- **Perguntas:** quantas mesas e garçons; como a conta é fechada hoje; se dividem a conta e de que jeito.
 
 ## Fase 5: caixa geral e nota fiscal
 
@@ -26,6 +33,18 @@ Nível de roteiro: há pouco levantado sobre cozinha, mesas e caixa geral. Antes
   - **Duas saídas:** emitir pelo PDV por uma API (por exemplo, Focus NFe: uns R$ 145 por mês para 2.000 notas, com certificado A1, credenciamento e CSC), ou continuar no sistema fiscal atual.
   - **Reforma tributária:** os campos de IBS e CBS passam a ser obrigatórios para o Simples Nacional em 2027. Use uma API pronta, não XML feito à mão.
 - **Perguntas:** como é o fechamento hoje; para onde vai o dinheiro depois do acerto; qual sistema emite nota hoje; regime tributário.
+
+### Relatórios da gerente (junto com a fase 5)
+- **Por dia e por período:**
+  - vendas por forma de pagamento, por cidade e por canal (conversa, link, balcão, mesa);
+  - ticket médio;
+  - pedidos por hora.
+- **Entregas:**
+  - tempo de entrega, da saída até "entregue" (já vem das saídas da fase 1);
+  - entregas e taxas por motoboy;
+  - pedidos que voltaram.
+- **Dinheiro:** faltas, sobras e ajustes, com o motivo de cada um.
+- **Exportação mensal (CSV)** para o contador.
 
 ## Fase 6: pedido pelo link (porta B)
 

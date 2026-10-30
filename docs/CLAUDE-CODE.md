@@ -67,17 +67,27 @@ Antes de instalar qualquer outro, veja o custo por mensagem no `/plugin`.
 
 | Hook | Quando | O que faz |
 |---|---|---|
-| `protege-segredos.mjs` | Antes de cada comando no terminal | Bloqueia: ler `.env` (menos o `.env.example`), certificados, listar variáveis de ambiente, `supabase db reset --linked` e `git push --force` |
+| `protege-segredos.mjs` | Antes de cada comando no terminal | Bloqueia: ler `.env` (menos o `.env.example`), certificados, listar variáveis de ambiente, `supabase db reset --linked`, `git push --force` e qualquer comando com uma credencial escrita nele |
+| `segredos-no-codigo.mjs` | Antes de criar ou editar um arquivo | Bloqueia escrever credencial em arquivo e escrever qualquer `.env` (só o `.env.example` é permitido) |
 | `formatar.mjs` | Depois de cada arquivo editado | Roda o Biome só naquele arquivo e devolve até 25 linhas de erro |
 | `testes-dominio.mjs` | Quando o Claude vai encerrar | Se `packages/dominio` mudou, roda os testes. Se falharem, devolve as últimas 30 linhas e o Claude continua. Desiste depois de 2 tentativas, para não entrar em ciclo |
 
-Enquanto o repositório ainda não tem Biome ou o pacote do domínio, os hooks não fazem nada.
+Enquanto o repositório ainda não tem Biome ou o pacote do domínio, os hooks de formatação e de testes não fazem nada.
+
+**Credenciais reconhecidas** (em `padroes-segredos.mjs`, usado pelos dois hooks de segredo):
+- chaves da Anthropic, da OpenAI e do Google;
+- chave secreta do Supabase (`sb_secret_`) e tokens JWT (as chaves anon e service_role antigas do Supabase são JWT);
+- URL do Postgres com senha;
+- tokens da Meta/WhatsApp, do GitHub e do Mercado Pago;
+- chaves da AWS e chaves privadas.
+
+Para incluir outro padrão, acrescente uma linha na lista. A varredura de segredos no CI (gitleaks) continua valendo como segunda barreira.
 
 ## Permissões (`.claude/settings.json`)
 
 - **Liberados sem perguntar:** testes, lint, tipos, build, Supabase local (`start`, `status`, `db reset` local, `migration new` e `gen types`), Graphify e git local (`status`, `diff`, `add` e `commit`).
 - **Pedem autorização:** `git push`, `supabase db push`, `functions deploy`, `secrets`, `link`, `pnpm add` (dependência nova é risco de segurança) e leitura de `docs/referencia/`.
-- **Proibidos:** ler `.env` de verdade, certificados e backups, `db reset --linked` e push forçado.
+- **Proibidos:** ler ou editar `.env` de verdade, ler certificados e backups, `db reset --linked` e push forçado.
 
 ## Fluxo de cada etapa
 

@@ -60,12 +60,12 @@ Um app web instalável (PWA) em **TypeScript**, que funciona sem internet e grav
  │ Postgres + RLS · Auth · Realtime          │◄─┤ impressão       │      │
  │ Storage · Edge Functions                  │  │ (computador do  │──► impressoras
  │  - aplicar_operacao (RPC)                 │  │ balcão)         │    térmicas
- │  - ler-comanda (IA), pix-webhook, nfce    │  └─────────────────┘
+ │  - pix-webhook, nfce                      │  └─────────────────┘
  └───────────────┬───────────────────────────┘◄────────────────────────────┘
                  │ só se o Pix exigir mTLS
                  ▼
  ┌───────────────────────────┐     ┌───────────────────────────────┐
- │ apps/integracoes (Fly.io) │────►│ Banco/PSP Pix · NFC-e · IA    │
+ │ apps/integracoes (Fly.io) │────►│ Banco/PSP Pix · NFC-e         │
  └───────────────────────────┘     └───────────────────────────────┘
 ```
 
@@ -89,7 +89,14 @@ Um app web instalável (PWA) em **TypeScript**, que funciona sem internet e grav
 - **A conta do acerto existe duas vezes:** em `packages/dominio` (telas) e em SQL (confirmação). Na confirmação, o aparelho manda os valores que o Luan viu; o servidor recalcula e recusa se não bater ("A conta mudou..."). Os testes de `supabase/tests` conferem que as duas dão o mesmo resultado nos casos da spec.
 - Operações da fase 1: `abrir_noite`, `fechar_noite`, `reabrir_noite`, `abrir_caixa`, `editar_caixa`, `avisar_retorno`, `lancar_saida`, `cancelar_saida`, `mudar_estado_saida`, `trocar_pagamento`, `sair_de_novo`, `conferir_papel`, `informar_contado`, `confirmar_acerto`, `reabrir_acerto`, `marcar_pix`, `pedir_impressao`, `atualizar_impressao`, `registrar_impressao_local`, `salvar_area`, `salvar_config` e `salvar_perfil`. O formato de cada uma está em `packages/db/src/operacoes.ts`.
 
-**Conflitos:** como o servidor recebe ações, e não linhas inteiras, quase não há conflito. Para campos simples, como observações, vale a última alteração.
+**Conflitos e concorrência:** o servidor recebe ações, e não linhas inteiras, então quase não há conflito. Para o resto:
+- **Cada operação roda numa transação só.** `aplicar_operacao` trava a linha que vai mudar (`select ... for update` no pedido, no caixa ou na conta da mesa), valida e grava, ou desfaz tudo.
+- **Versão.** `pedidos`, `caixas` e, na fase 4, `contas_mesa` têm uma coluna `versao`, que sobe a cada mudança.
+  - Operações que dependem do estado atual (fechar conta, confirmar acerto, trocar pagamento, cancelar) levam a `versao_esperada`.
+  - Se outra pessoa mudou antes, a operação é recusada com "Fulano mudou este pedido; confira e tente de novo". Ninguém sobrescreve o trabalho de outro sem ver.
+- **Itens só se somam.** Adicionar item é uma operação própria (`adicionar_item`, com id gerado no aparelho), e remover também (`remover_item`). Dois garçons lançando na mesma mesa ao mesmo tempo nunca apagam o item um do outro.
+- **Uma conta aberta por mesa:** índice único parcial em `contas_mesa (mesa) where fechada_em is null`.
+- **Campos simples,** como observações: vale a última alteração.
 
 **Telas:** só conversam com `src/data/repo.ts`, que esconde o IndexedDB, a fila e o Supabase. As telas não fazem conta: as contas ficam em `packages/dominio`.
 
@@ -115,7 +122,6 @@ Cada integração fica atrás de uma interface em `packages/dominio/src/integrac
 
 | Integração | Como | Onde roda |
 |---|---|---|
-| Leitura de comanda por foto (extra) | Gemini ou Claude, com o modelo num secret | Edge Function `ler-comanda` |
 | Pix automático | Cobrança com QR dinâmico (copia e cola) por pedido, com `txid`, e confirmação por webhook | Depende do provedor (abaixo) |
 | Maquininha (Laranjinha, Itaú/Rede) | Primeiro: importar o relatório de vendas do Portal Rede e casar pelo valor, pela maquininha e pela hora. A Rede também compartilha o extrato de conciliação com sistemas autorizados no portal (Conciliação → Compartilhar). A maquininha integrada só viria trocando de adquirente, o que hoje não compensa | Domínio + Edge Function |
 | NFC-e | API de emissão (exemplo: Focus NFe), com certificado A1 e credenciamento na SEFAZ-GO; ou continuar no sistema fiscal atual | Edge Function |
@@ -127,11 +133,34 @@ Cada integração fica atrás de uma interface em `packages/dominio/src/integrac
 - **Mercado Pago:** usa token, sem certificado, e roda nas Edge Functions. Também é uma segunda conta.
 - **Decisão:** ver primeiro a tarifa negociada no Itaú. Num pedido de R$ 80, a diferença entre o Itaú (cerca de R$ 1,10) e o Inter (R$ 0,72) é de uns R$ 0,40 por Pix.
 
+## Robustez
+
+- **Horário do servidor:** a hora de cada operação é gravada pelo servidor ao aplicar. A hora do aparelho só ordena a fila local. Um celular com relógio errado não muda a noite nem a ordem dos fatos.
+- **Versões do app convivendo:**
+  - toda operação leva `versao_op`, e o servidor aceita a versão atual e a anterior;
+  - `config.versao_minima_app` define quando o app antigo para de valer: abaixo dela, o app pede para atualizar, mas primeiro envia a fila, para nada se perder;
+  - as migrações seguem expandir → migrar → contrair (PADROES).
+- **Dinheiro só se acrescenta:** pagamentos, acertos, sobras e faltas nunca são apagados. Uma correção é um ajuste com motivo (OPE3).
+- **Batimento do agente:** o agente grava "vivo" a cada 30 s. Sem sinal há 2 minutos, o painel mostra "Impressora sem resposta" e oferece a impressão pelo navegador como reserva.
+- **Contingência no meio da noite:** "Imprimir folha agora" e "Exportar a noite (CSV)" funcionam com os dados do aparelho, mesmo sem internet. Um plano de cinco linhas fica colado no balcão: o que fazer se cair a internet, a energia ou o sistema.
+- **Infraestrutura física:**
+  - nobreak para o roteador, o computador e a impressora;
+  - internet reserva (roteador com chip 4G, ou um celular roteando);
+  - IP da impressora reservado no roteador.
+- **Janela de implantação:** deploy e migração só fora do turno. De preferência segunda e terça (folga da casa); de quarta a domingo, só até as 16h. Nunca entre 17h e 01h.
+- **Voltar atrás:** o Cloudflare Pages volta para a versão anterior com um clique. Como as migrações são compatíveis, o app volta sem mexer no banco.
+- **Monitoramento:**
+  - registro de erros (MVP);
+  - verificação de disponibilidade a cada 5 minutos no app e numa função `saude` (um serviço gratuito de monitoramento serve);
+  - aviso no celular do Felipe quando algo cair.
+- **Relatar problema:** um botão no app grava em `erros` a versão, a tela e as últimas 20 operações do aparelho, para achar a causa sem depender da memória de ninguém.
+
 ## Segurança e dados pessoais
 
 - **Regras de acesso:** RLS em todas as tabelas, com funções `security definer` para ler o papel (modelo em `referencia/schema-v1.sql`).
 - **Papéis:** `admin`, `gerente`, `expedicao`, `atendente`, `motoboy`, `cozinha`, `garcom`, `agente`.
 - **Testes de acesso:** um teste por papel com contas reais no Supabase local. Exemplos: o motoboy não vê o caixa de outro, e não edita depois do acerto.
+- **Contas:** MFA (código no app autenticador) obrigatório para `admin` e `gerente`. Os limites de tentativa de login do Supabase ficam ligados.
 - **Chaves:** no front, só a anon key. A service role e as chaves de API ficam nos secrets do Supabase ou do servidor. Backups `.json` e `.env` ficam fora do repositório (`.gitignore`).
 - **Dados de cliente** (telefone, endereço, localização): o motoboy vê só os das próprias saídas da noite. Os logs não levam dados pessoais.
 - **Backups:** os backups diários do Supabase Pro e um `pg_dump` semanal guardado fora do Supabase.
@@ -144,7 +173,6 @@ Cada integração fica atrás de uma interface em `packages/dominio/src/integrac
 | Supabase | Free para desenvolver. Pro antes da primeira noite real, porque o Free pausa após 1 semana sem uso | US$ 25 (uns R$ 140) |
 | Servidor de integrações (só se o Pix exigir mTLS) | Fly.io, `gru`, shared-cpu-1x | Uns US$ 3,54 |
 | Domínio | `.com.br` no registro.br | Uns R$ 40 por ano |
-| IA da leitura por foto (extra) | Conforme o modelo | R$ 11 a 185 |
 | NFC-e por API (se o PDV emitir) | Focus NFe, plano Retail | Uns R$ 145 para 2.000 notas |
 | Pix automático | Tarifa do provedor | 0,9% a 1,2% por Pix antecipado |
 | Hardware | Impressora térmica sem fio (Wi-Fi de fábrica, ou de rede com ponte Wi-Fi); o computador do balcão já existe | Cerca de R$ 680 por impressora de rede, mais a ponte Wi-Fi; uma vez |
@@ -167,11 +195,11 @@ mel-pdv/
     bancada/                 ambiente de testes: Pix falso, impressora virtual, noite simulada (depois do MVP)
   packages/
     dominio/                 regras e contas puras, com testes (acerto, pedido, preço, conciliação,
-                             leitura, layout de impressão, interfaces das integrações)
+                             layout de impressão, interfaces das integrações)
     db/                      tipos gerados do banco (`supabase gen types`) e schemas Zod
   supabase/
     migrations/              uma migração por mudança, sempre versionada
-    functions/               aplicar_operacao fica no SQL; ler-comanda, pix-webhook, nfce aqui
+    functions/               aplicar_operacao fica no SQL; pix-webhook e nfce aqui
     seed.sql                 áreas, cardápio (de docs/dados/cardapio-mel.json) e contas de teste
     tests/                   testes de RLS por papel
 ```
@@ -188,7 +216,7 @@ Dinheiro sempre em centavos (`integer`). Os IDs são `uuid` gerados no aparelho.
 | `noites` | data, promo_desconto, aberta_em, fechada_em | 1 |
 | `caixas` | noite, motoboy, caixa_inicial, diaria, ordem_chegada, dinheiro_contado, fechado_em | 1 |
 | `pedidos` | noite, codigo (4 dígitos), cliente (nulo na fase 1), origem, tipo, area, total, promocao, estado, atendendo_por, atendendo_desde, obs | 1 |
-| `pedido_itens` | pedido, tipo, tamanho, sabores, item, quantidade, preço unitário gravado | 2 |
+| `pedido_itens` | pedido, tipo, tamanho, sabores, item, quantidade e uma fotografia do momento da venda (nome, faixa cobrada, preço unitário, desconto da promoção). Relatórios antigos não mudam quando o cardápio muda | 2 |
 | `saidas` | pedido, motoboy, caixa, taxa (gravada), estado (separada, em_rota, entregue, voltou), saiu_em, voltou_em, papel_conferido | 1 |
 | `pagamentos` | pedido, forma, valor, troco_pix, previsto ou real, saida (quem recebeu na porta), pix_confirmado e origem (manual, webhook, maquininha), referência externa (txid, NSU) | 1 |
 | `acertos` | caixa, valores congelados (contado, falta, sobra, pago, do caixa dele, retirado do caixa da empresa, vai para a empresa, completado do bolso), confirmado_por, confirmado_em | 1 |
