@@ -83,6 +83,12 @@ Um app web instalável (PWA) em **TypeScript**, que funciona sem internet e grav
 4. **Operação recusada:** o aparelho desfaz o efeito local e mostra o motivo. Exemplo: "3557: o acerto já foi confirmado pelo Luan".
 5. **Indicador discreto:** "Salvo" ou "3 alterações esperando internet".
 
+**No banco (fase 1):**
+- As tabelas só têm políticas de leitura. `anon` e `authenticated` não escrevem direto: toda escrita passa por `aplicar_operacao`, que é `security definer`.
+- As regras ficam no esquema `interno`, que a API não expõe: uma função `op_<tipo>` por operação, os ajudantes de papel usados nas políticas e a conta do acerto (`interno.conta_caixa`).
+- **A conta do acerto existe duas vezes:** em `packages/dominio` (telas) e em SQL (confirmação). Na confirmação, o aparelho manda os valores que o Luan viu; o servidor recalcula e recusa se não bater ("A conta mudou..."). Os testes de `supabase/tests` conferem que as duas dão o mesmo resultado nos casos da spec.
+- Operações da fase 1: `abrir_noite`, `fechar_noite`, `reabrir_noite`, `abrir_caixa`, `editar_caixa`, `avisar_retorno`, `lancar_saida`, `cancelar_saida`, `mudar_estado_saida`, `trocar_pagamento`, `sair_de_novo`, `conferir_papel`, `informar_contado`, `confirmar_acerto`, `reabrir_acerto`, `marcar_pix`, `pedir_impressao`, `atualizar_impressao`, `registrar_impressao_local`, `salvar_area`, `salvar_config` e `salvar_perfil`. O formato de cada uma está em `packages/db/src/operacoes.ts`.
+
 **Conflitos:** como o servidor recebe ações, e não linhas inteiras, quase não há conflito. Para campos simples, como observações, vale a última alteração.
 
 **Telas:** só conversam com `src/data/repo.ts`, que esconde o IndexedDB, a fila e o Supabase. As telas não fazem conta: as contas ficam em `packages/dominio`.
@@ -176,7 +182,7 @@ Dinheiro sempre em centavos (`integer`). Os IDs são `uuid` gerados no aparelho.
 
 | Tabela | Campos principais | Fase |
 |---|---|---|
-| `perfis` | id (auth), nome, papel, ativo | 1 |
+| `perfis` | id (auth), nome, papeis (lista: o Felipe é `admin` e `motoboy`), ativo | 1 |
 | `config` | fuso (`America/Sao_Paulo`), fases ligadas, padrões (caixa 8000, diária 3000) | 1 |
 | `areas` | nome, cidade, taxa, ativa | 1 |
 | `noites` | data, promo_desconto, aberta_em, fechada_em | 1 |
@@ -189,10 +195,11 @@ Dinheiro sempre em centavos (`integer`). Os IDs são `uuid` gerados no aparelho.
 | `sobras`, `faltas` | caixa, valor, origem descoberta, devolvido_em | 1 |
 | `clientes`, `cliente_locais` | telefone completo, nome; pino, link do Maps, endereço, área | 2 |
 | `cardapio_*` | faixas e preços por tamanho, sabores, bordas, adicionais, bebidas, combos | 2 |
-| `impressoes` | tipo, impressora, conteúdo, estado, tentativas | 2 |
+| `impressoes` | tipo, impressora, conteúdo, estado, tentativas (o MVP já imprime o recibo do acerto e a folha) | 1 |
 | `creditos`, `cobrancas_dobro` | cliente, valor, motivo, usado_em; pedido, escolha, resolvido | 2 |
 | `transacoes_maquininha` | maquininha, valor, hora, NSU, pagamento casado | integrações |
 | `operacoes`, `eventos` | fila aplicada (idempotência) e registro de quem fez o quê | 1 |
+| `erros` | erros do front, do agente e das funções, sem dados de cliente | 1 |
 
 ## Fontes
 

@@ -1,0 +1,14 @@
+{
+  "name": "@mel/testes-banco",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test:db": "vitest run"
+  },
+  "dependencies": {
+    "@mel/db": "workspace:*",
+    "@mel/dominio": "workspace:*"
+  }
+}

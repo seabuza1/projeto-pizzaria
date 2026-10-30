@@ -1,0 +1,18 @@
+{
+  "name": "@mel/db",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "gen:tipos": "supabase gen types typescript --local --schema public > src/database.types.ts && biome format --write src/database.types.ts"
+  },
+  "dependencies": {
+    "zod": "4.6.7",
+    "@mel/dominio": "workspace:*"
+  }
+}

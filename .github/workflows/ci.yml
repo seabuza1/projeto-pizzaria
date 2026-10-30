@@ -28,3 +28,28 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm exec biome ci .
       - run: pnpm test
+
+  banco:
+    name: Migrações, RLS e acesso por papel
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v5
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Supabase local (migrações e seed)
+        run: pnpm exec supabase start -x studio,imgproxy,storage-api,logflare,vector,supavisor,mailpit,postgres-meta,edge-runtime
+      - name: Lint das funções do banco
+        run: pnpm exec supabase db lint --schema public,interno --fail-on error
+      - name: Advisors (segurança e desempenho)
+        run: pnpm exec supabase db advisors --local --type security --fail-on warn
+      - name: Testes de acesso e da conta no servidor
+        run: pnpm --filter @mel/testes-banco test:db
+      - name: Tipos do banco em dia com as migrações
+        run: |
+          pnpm --filter @mel/db gen:tipos
+          git diff --exit-code packages/db/src/database.types.ts
