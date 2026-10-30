@@ -17,6 +17,12 @@ export function formatarReais(centavos: number): string {
   return valor.startsWith('-') ? `-R$ ${valor.slice(1)}` : `R$ ${valor}`;
 }
 
+/** Sem os centavos quando são zero: 8000 → "80"; 4750 → "47,50" */
+export function formatarCurto(centavos: number): string {
+  const valor = formatarValor(centavos);
+  return valor.endsWith(',00') ? valor.slice(0, -3) : valor;
+}
+
 export function ehCentavos(valor: number): boolean {
   return Number.isSafeInteger(valor);
 }

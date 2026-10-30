@@ -112,7 +112,7 @@ const soma = (pagamentos: readonly PagamentoAcerto[], campo: (p: PagamentoAcerto
  * PAG3: os pagamentos que valem para uma saída entregue. São os do pedido ligados a ela
  * ou só ao pedido (Pix antecipado); os reais, se houver, senão os previstos.
  */
-function pagamentosDaSaida(saida: SaidaAcerto, pagamentos: readonly PagamentoAcerto[]): PagamentoAcerto[] {
+export function pagamentosDaSaida(saida: SaidaAcerto, pagamentos: readonly PagamentoAcerto[]): PagamentoAcerto[] {
   const doPedido = pagamentos.filter(
     (p) => p.pedidoId === saida.pedidoId && (p.saidaId === saida.id || p.saidaId === null),
   );
