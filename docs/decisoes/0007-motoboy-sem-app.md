@@ -1,0 +1,5 @@
+# 0007 O motoboy não usa o sistema
+
+- **Contexto:** o app do motoboy existia porque, na fase 1 antiga, a comanda ainda era escrita à mão e só o motoboy podia lançar os dados para o acerto. Com o pedido digitado pelo atendente desde o MVP, esse motivo some. A Mel já trabalha à mão, e cada tela a mais é mais coisa para quebrar e para manter (Felipe, 30/10).
+- **Decisão:** o motoboy não tem login nem tela. Ele recebe a comanda impressa (com QR do Maps e a situação do Pix) e o recibo do acerto. O Luan registra no painel quem levou cada pedido, o que voltou e a forma que mudou na porta. O motoboy vira um cadastro (tabela `motoboys`: nome e ativo) para caixa, diária e taxas.
+- **Consequência:** saem a rota `/motoboy`, o papel `motoboy` em uso, o "Volto em 5/10", o "Entregue" e o histórico do motoboy. O que serve ao Luan (menu da saída, editor de pagamentos, conta detalhada e lançamento rápido) vai para o painel. Substitui a parte da 0001 sobre o Felipe ser `admin` e `motoboy`. O valor `motoboy` do enum e os estados `separada` e `entregue` ficam sem uso: o Postgres não remove valor de enum sem recriar o tipo.

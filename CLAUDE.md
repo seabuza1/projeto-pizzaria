@@ -7,11 +7,12 @@ Sistema para a Mel Pizzaria (Aragarças, GO), construído aos poucos, uma fase p
 - `docs/PADROES.md`: padrões de código (organização, nomes, erros, testes, migrações, dependências). **Siga em todo código.**
 - `docs/PROJETO.md`: a pizzaria, os princípios, as regras de negócio (PED, ENT, PAG, ACE e OPE), as fases e as perguntas em aberto. **As regras valem daqui.**
 - `docs/ARQUITETURA.md`: stack, desenho, offline, impressão, integrações, custos, estrutura do repositório e modelo de dados.
-- `docs/fases/`: a spec de cada fase. Implemente só a fase pedida. **Foco atual: atendimento e despacho** (MVP e fase 2). Não comece as fases 3 a 6 sem o Felipe pedir.
-  - `F1-acerto.md`: caixa do motoboy, painel do Luan e acerto.
-  - `F2-pedido.md`: pedido digitado, clientes, comanda impressa e despacho.
+- `docs/ERROS-PREVISTOS.md`: erros do cliente, da equipe e críticos, e quem resolve. Cada linha "Sistema" vira teste.
+- `docs/fases/`: a spec de cada fase. Implemente só a fase pedida. **Foco atual: atendimento e despacho** (o MVP junta as fases 1 e 2). Não comece as fases 3 a 6 sem o Felipe pedir.
+  - `F1-acerto.md`: despacho e acerto no painel do Luan.
+  - `F2-pedido.md`: pedido digitado, clientes, cardápio e comanda impressa.
   - `F3-a-F6.md`: cozinha, garçom, caixa geral, link do cliente e integrações (em nível de roteiro).
-- `docs/BANCADA-TESTES.md`: ambiente controlado com Pix falso, impressora virtual e noite simulada (depois do MVP).
+- `docs/BANCADA-TESTES.md`: noite simulada, impressora virtual e falhas de rede (depois do MVP).
 - `docs/CLAUDE-CODE.md`: ferramentas, hooks, permissões e economia de tokens.
 - `docs/dados/cardapio-mel.json`: o cardápio real, usado para o seed e nos testes.
 - `docs/referencia/`: levantamento original, pesquisa e schema antigo. Servem só de contexto: não implemente a partir deles.
@@ -19,6 +20,8 @@ Sistema para a Mel Pizzaria (Aragarças, GO), construído aos poucos, uma fase p
 ## Como trabalhar
 - Siga a "Ordem de construção" da spec. **Comece pelos testes do domínio**, e pare no fim de cada etapa com um resumo de poucas linhas.
 - Se a spec estiver ambígua ou contradizer `PROJETO.md`, pergunte antes de decidir. Não invente regra de negócio.
+- **Enxuto:** não crie tela, tabela, papel ou interface que a etapa não pede. Na dúvida, pergunte (PADROES, Enxuto).
+- **Módulos removíveis:** uma pasta por funcionalidade, registrada na lista de módulos; uma funcionalidade não importa outra. Para tirar uma, use `/remover-funcionalidade <nome>` (PADROES, Módulos removíveis).
 - Mudou uma decisão de arquitetura? Atualize `docs/ARQUITETURA.md` no mesmo commit.
 - Toda mudança de banco é uma migração nova em `supabase/migrations/`. Nunca edite migração já aplicada.
 - Antes de dizer que terminou, rode os tipos, o lint e os testes.
@@ -31,15 +34,14 @@ Sistema para a Mel Pizzaria (Aragarças, GO), construído aos poucos, uma fase p
 
 ## Stack (detalhes em ARQUITETURA)
 TypeScript strict em tudo, num monorepo pnpm:
-- `apps/web`: PWA da equipe (React, Vite, Tailwind, Dexie);
-- `apps/cliente`: página do link (fase 6);
+- `apps/web`: PWA da equipe do balcão (React, Vite, Tailwind, Dexie);
 - `apps/agente`: impressão ESC/POS no balcão;
-- `apps/integracoes`: só se o Pix exigir mTLS;
-- `apps/bancada`: testes em ambiente controlado (depois do MVP);
 - `packages/dominio`: regras e contas puras;
 - `packages/db`: tipos e schemas Zod.
 
-Nomes dos pacotes: `@mel/web`, `@mel/cliente`, `@mel/agente`, `@mel/integracoes`, `@mel/bancada`, `@mel/dominio` e `@mel/db`.
+Só nascem com a sua fase: `apps/cliente` (fase 6) e `apps/integracoes` (só se o Pix exigir mTLS).
+
+Nomes dos pacotes: `@mel/web`, `@mel/agente`, `@mel/dominio` e `@mel/db` (depois, `@mel/cliente` e `@mel/integracoes`).
 
 Supabase em São Paulo (Postgres com RLS, Auth, Realtime, Storage, Edge Functions). Front no Cloudflare Pages. Testes com Vitest e Playwright. Lint e formatação com Biome.
 
@@ -54,12 +56,12 @@ Supabase em São Paulo (Postgres com RLS, Auth, Realtime, Storage, Edge Function
   - números em fonte mono tabular;
   - sem `alert` e sem `confirm`: use desfazer ou confirmação com dois toques;
   - textos curtos.
-- **Papéis:** `admin`, `gerente`, `expedicao`, `atendente`, `motoboy`, `cozinha`, `garcom` e `agente`.
+- **Papéis em uso:** `admin`, `gerente`, `expedicao`, `atendente` e `agente`. O motoboy não usa o sistema: é um cadastro (decisão 0007). `cozinha` e `garcom` só nas fases 3 e 4.
 - **Segurança:**
   - no front, só a anon key; a service role nunca;
   - chaves de API ficam nos secrets do Supabase ou do servidor;
   - backups `.json` e `.env` ficam fora do repositório (`.gitignore`).
-- **Dados de cliente:** o motoboy vê só os das próprias saídas da noite. Logs sem telefone nem endereço.
+- **Dados de cliente:** só a equipe do balcão vê no sistema; o motoboy recebe na comanda impressa. Logs sem telefone nem endereço.
 - **Respostas e resumos:** curtos.
 
 ## Glossário curto

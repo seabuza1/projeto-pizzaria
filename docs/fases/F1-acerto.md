@@ -1,66 +1,62 @@
-# Fase 1: caixa do motoboy, painel do Luan e acerto
+# Fase 1: despacho e acerto no painel do Luan
 
-Junta o MVP (que já rodou no celular do Felipe e cumpriu o papel) e a versão 1 (nuvem, painel do Luan, liquidação). As regras citadas estão em `docs/PROJETO.md`; a arquitetura, em `docs/ARQUITETURA.md`.
+Parte do MVP. O motoboy não usa o sistema (decisão 0007): tudo acontece no painel do Luan. As regras citadas estão em `docs/PROJETO.md`; a arquitetura, em `docs/ARQUITETURA.md`; os erros previstos, em `docs/ERROS-PREVISTOS.md`.
 
 ## Objetivo
 
-O motoboy lança cada comanda de papel ao pegar a entrega e marca na porta como foi pago. O Luan acompanha a noite numa tela no formato da folha de expedição e faz o acerto com a conta pronta. Meta: o acerto cair de 5 a 15 minutos por motoboy para poucos minutos, e comanda perdida deixar de travar o acerto.
+O Luan registra com um ou dois toques quem levou cada pedido e faz o acerto com a conta pronta, no formato da folha de expedição. Meta: o acerto cair de 5 a 15 minutos por motoboy para poucos minutos, e comanda perdida deixar de travar o acerto.
 
 ## Escopo
 
 **Dentro:**
-- abrir a noite e os caixas;
-- lançar a saída: código, total, área e forma prevista;
-- marcar na porta: entregue, trocou a forma, voltou e saiu de novo;
-- conta do acerto em tempo real;
-- conferência de papéis (comanda perdida);
-- liquidação: do caixa dele e retirada do caixa da empresa;
-- confirmação do acerto;
-- entregas por cidade;
-- histórico por noite e por período;
+- abrir a noite, escolher os motoboys e abrir os caixas;
+- despachar: pedido → motoboy;
+- "Voltou", "Trocou a forma" e "Saiu de novo";
+- "Lançar comanda de papel", para a noite que rodou no papel;
+- conta do acerto em tempo real, com a dica de diferença;
+- conferência de papéis e da forma de pagamento de cada comanda;
+- liquidação e confirmação do acerto;
 - coluna PIX com "caiu" marcado pelo Luan;
-- nuvem com login e funcionamento offline.
+- entregas por cidade, resumo da noite e noite antiga só para leitura, com CSV;
+- cadastro de motoboys.
 
-**Fora:** pedido digitado pelo atendente (fase 2), cozinha, crédito, cobrança em dobro, retiradas e Pix automático.
+**Fora:** app do motoboy, "Entregue", aviso de retorno no sistema ("Volto em 5"), separar pedido para um motoboy, rota com várias paradas, histórico por semana e mês, crédito e cobrança em dobro.
 
 ## Regras usadas
 
-PED1, PED2, ENT1 a ENT5, ENT8, PAG1 a PAG7, ACE1 a ACE10, OPE1 e OPE2.
+PED1, PED2, ENT1 a ENT8, PAG1 a PAG7, ACE1 a ACE10, OPE1 a OPE3.
 
-Nesta fase, o pedido nasce da comanda de papel. Ao lançar, o app cria de uma vez o `pedido` (origem `papel`), a `saida` (em rota) e os `pagamentos` previstos.
+O pedido nasce na tela do atendente (F2). Na contingência, nasce do "Lançar comanda de papel", com origem `papel`.
 
 ## Fluxo da noite
 
-1. **Abrir a noite** (expedição ou admin): a data sai do relógio no fuso da pizzaria; das 00h às 06h vale o dia anterior. Escolher os motoboys da noite na ordem de chegada.
-2. **Caixa do motoboy:** abre com R$ 80 e R$ 30 já preenchidos e editáveis.
-3. **Lançar** (motoboy, com a comanda na mão, ao pegar a entrega):
-   - código com 4 dígitos, que pula sozinho para o total;
-   - total ("113" vale R$ 113,00);
-   - área em chips com a taxa;
-   - forma prevista.
-   - **Tocar na forma já lança**, se o resto estiver certo, e mostra "3557 lançada · Desfazer" por 5 s.
-   - O botão Lançar fica para o pagamento dividido ("Pagou de mais de um jeito": linhas de forma e valor, e a linha vazia fica com o resto).
-   - Troco por Pix e pagamento dividido ficam em "Mais opções".
-   - **Área sugerida:** a do último pedido com o mesmo código, se houver.
-4. **Na porta:**
-   - "Entregue" com um toque mantém a forma prevista;
-   - no menu da comanda: "Trocou a forma" (formas e divisão) e "Voltou".
-   - Na saída que voltou: "Saiu de novo" cria outra saída do mesmo pedido, com outra taxa.
-   - Desfazer no lugar de confirmar.
-5. **Retorno opcional:** "Volto em 5" e "Volto em 10" aparecem para o Luan.
-6. **Acerto** (Luan, no painel, pela ordem de chegada):
-   - papel conferido em cada comanda recebida;
-   - dinheiro contado;
-   - a tela mostra a liquidação, e o Luan confirma.
+1. **Abrir a noite** (expedição, gerente ou admin): a data sai do relógio do servidor no fuso da pizzaria; das 00h às 06h vale o dia anterior. Se ninguém abriu, o primeiro pedido do atendente abre a noite com os padrões.
+2. **Motoboys da noite:** escolher do cadastro, na ordem de chegada. Cada um ganha um caixa com R$ 80 e R$ 30 já preenchidos e editáveis.
+3. **Despachar** (Luan, quando o motoboy pega a pizza):
+   - a lista mostra os pedidos de entrega autorizados e ainda não despachados, por ordem de autorização, com a área e a situação do Pix;
+   - tocar num ou mais códigos e depois no nome do motoboy cria uma saída para cada pedido, com a taxa da área gravada;
+   - "Desfazer" por 5 s; depois disso, "Cancelar saída" com motivo;
+   - pedido com "PIX: CONFERIR" mostra o aviso para o Luan conferir antes de entregar a comanda ao motoboy.
+4. **Durante a noite** (menu do código na coluna do motoboy):
+   - **"Voltou":** a taxa conta e os valores do pedido não (ENT5);
+   - **"Saiu de novo":** nova saída do mesmo pedido, com outra taxa (ENT4);
+   - **"Trocou a forma":** formas e divisão, quando o motoboy avisa ou no acerto (PAG3).
+5. **Lançar comanda de papel** (contingência, quando o sistema ou o aparelho caiu e a noite seguiu no papel): código, total, área, forma e motoboy. Tocar na forma já lança. Área sugerida pelo último pedido com o mesmo código.
+6. **Acerto** (Luan, pela ordem de chegada):
+   - **papel conferido:** para cada comanda que o motoboy devolve, marcar o papel e conferir a forma. Se ele anotou outra forma na comanda ou não há comprovante da maquininha para um cartão, "Trocou a forma";
+   - **dinheiro contado;**
+   - a tela mostra a liquidação e, se houver diferença, a dica de diferença;
+   - "Confirmar acerto" com dois toques; o recibo imprime.
+7. **Fechar a noite:** o sistema lista o que ficou pendente (pedido autorizado sem saída, rascunho aberto, caixa sem acerto, Pix sem "caiu") e o Luan resolve ou confirma que pode fechar.
 
 ## Cálculo: `packages/dominio/src/acerto.ts`
 
 Funções puras, em centavos. Para um caixa (um motoboy numa noite):
 
 ```
-saidasDoCaixa = saídas do motoboy na noite
-entregues     = saidasDoCaixa com estado ≠ voltou      (em_rota conta como entregue, com aviso ao fechar)
-pagamentosNaPorta = pagamentos ligados às entregues (forma real; a prevista se não foi confirmada)
+saidasDoCaixa = saídas do motoboy na noite (sem as canceladas)
+entregues     = saidasDoCaixa com estado ≠ voltou
+pagamentosNaPorta = pagamentos ligados às entregues (forma real; a prevista se não foi trocada)
 
 dinheiro      = Σ pagamentos em dinheiro
 troco         = Σ troco_pix desses pagamentos em dinheiro
@@ -88,11 +84,18 @@ liquidação:
 porArea[área]   = { entregues, voltaram, taxas }
 papelFaltando   = saídas com papel_conferido = false
 listaMaquininha = pagamentos em cartão e Pix na maquininha, com código, forma e valor, na ordem da hora
+
+dicaDiferenca(dif, pagamentosNaPorta):
+  se dif > 0: pagamentos em cartão ou Pix na maquininha com valor = dif   → "pagou em dinheiro?"
+  se dif < 0: pagamentos em dinheiro com valor = −dif                    → "pagou no cartão ou Pix na máquina?"
+  devolve a lista (pode ser vazia); nunca troca nada sozinha
 ```
 
 Conferência: sem falta, `vaiParaEmpresa − retiradoCaixaEmpresa = devolver − receber + sobra`.
 
 Os pagamentos na porta ficam ligados a uma saída. Quando uma saída volta e o pedido sai de novo, esses pagamentos passam para a nova saída; os Pix antecipados continuam só no pedido.
+
+**Troca de forma, em resumo:** trocar entre cartão e Pix na maquininha não muda o dinheiro do motoboy, só a lista da maquininha. Trocar de ou para dinheiro muda o "devolver". Se ninguém registrar a troca, o dinheiro contado não bate e a dica de diferença aponta a comanda provável.
 
 ## Casos de teste (R$; caixa 80 e diária 30, salvo indicação)
 
@@ -113,7 +116,7 @@ Noite base: uma saída por pedido.
 - **T4** Base + contado 250: sobra 7, pagar 86.
 - **T5** Base + contado 140: falta 103, pagar 0, completa 17.
 - **T6** Base + pedido 1234, total 50, Pontal, 20 em Pix antecipado + 30 em dinheiro: devolver 273, maquininha 162, receber 96, pixAntecipado 80.
-- **T7** Base + o 8094 sai de novo com ele (segunda saída do mesmo pedido, dinheiro, entregue): devolver 308, receber 98.
+- **T7** Base + o 8094 sai de novo com ele (segunda saída do mesmo pedido, dinheiro): devolver 308, receber 98.
 - **T8** Base, depois a taxa de Barra muda para 13: receber continua 86 (ENT2).
 - **T9** Pagamento misto cuja soma difere do total: lançamento bloqueado, com mensagem.
 - **T10** Caixa 75. Treze saídas, todas no cartão: 10 em Barra de 50, 2 em Aragarças de 40 e 1 em Pontal de 30. Contado 75 → devolver 75, maquininha 610, receber 170, pagar 170, doCaixaDele 75, retiradoCaixaEmpresa 95, vaiParaEmpresa 0.
@@ -124,26 +127,9 @@ Noite base: uma saída por pedido.
 - **T15** Uma saída em Aragarças de 40 em dinheiro, contado 120: receber 35, pagar 35, doCaixaDele 35, retiradoCaixaEmpresa 0, vaiParaEmpresa 85.
 - **T16** Base → porArea: Barra 2 entregues, 1 voltou, taxas 36; Aragarças 2, taxas 10; Pontal 1, taxas 10.
 - **T17** Base com papel conferido em todas menos a 2672 → papelFaltando = [2672].
-- **T18** Saída em rota no fechamento conta como entregue, e a função devolve um aviso.
+- **T18** Saída sem "Voltou" no fechamento conta como entregue, sem aviso.
 - **T19** Pagamento com troco por Pix sem parte em dinheiro: recusado (PAG4).
-
-## Telas do motoboy (`/motoboy`)
-
-- **Barra inferior** com 3 abas: Noite, Acerto e Histórico. Ajustes e Sair ficam num ícone do Histórico.
-- **Topo fino e fixo** com Devolver, Maquininha e Receber.
-- **Lista sem cartões:** código grande à esquerda, área e forma em cinza, valor à direita, estado por cor e ícone. Tem busca por código.
-- **Pix antecipado:** mostra "Pix não confirmado · cobrar R$ X" até o Luan marcar "caiu". Depois mostra "Pix confirmado".
-- **Acerto:**
-  - conta detalhada, com a origem de cada número ("80 de caixa + 160 em dinheiro + 3 de troco por Pix");
-  - entregas por cidade;
-  - lista da maquininha;
-  - papéis faltando;
-  - liquidação ("do seu caixa", "o Luan tira do caixa da empresa", "vai para a empresa");
-  - estado: "Aguardando o Luan" ou "Confirmado por Luan às 23:48".
-- **Histórico:**
-  - por noite e por período (semana e mês): noites, entregas por cidade, diárias, taxas e total recebido;
-  - noite antiga em modo leitura;
-  - exportar em CSV.
+- **T20** Dica de diferença. Base, mas o cliente da 2672 pagou os 90 em dinheiro e ninguém trocou a forma; contado 333 → sobra 90, e a dica aponta a 2672 (cartão, 90). Depois de "Trocou a forma" para dinheiro: devolver 333, maquininha 72, sobra 0.
 
 ## Painel do Luan (`/expedicao`, papéis expedicao, gerente e admin)
 
@@ -164,18 +150,19 @@ Noite base: uma saída por pedido.
  Pendente          Pendente
 ```
 - **Colunas:** uma por motoboy, na ordem de chegada. No celular rolam para o lado; em tela maior ficam lado a lado.
-- **Cada código** mostra a forma e o estado (em rota, entregue, riscado se voltou). Tem "→ valor" para troco por Pix e "•" para papel não conferido depois de aberto o acerto.
-- **Volta em N min:** aparece no topo da coluna de quem avisou o retorno.
-- **Coluna PIX:** todos os Pix antecipados da noite. Tocar marca "caiu".
+- **Cada código** mostra a forma e o estado (riscado se voltou). Tem "→ valor" para troco por Pix e "•" para papel não conferido depois de aberto o acerto.
+- **Coluna PIX:** todos os Pix antecipados da noite. Tocar marca "caiu"; desfazer pede motivo.
 - **Rodapé de cada coluna:** data e caixa inicial, entregas, devolver, receber e estado do acerto.
-- **Tempo real:** uma comanda nova aparece em poucos segundos.
+- **Tempo real:** um despacho feito em outro aparelho aparece em poucos segundos.
+
+**Despacho** (no topo do painel): os pedidos prontos para sair, conforme o fluxo acima.
 
 **Caixa do motoboy** (tocar na coluna):
-- conta completa, entregas por cidade e lista da maquininha;
+- conta completa, com a origem de cada número (ACE10), entregas por cidade e lista da maquininha;
 - conferência de papéis: marcar cada comanda recebida, com as que faltam no topo e os dados para refazer (código, total, área, formas, troco e hora);
-- dinheiro contado;
+- dinheiro contado e dica de diferença;
 - **liquidação:** "Pague R$ 75,00 do caixa dele e retire R$ 95,00 do caixa da empresa";
-- "Confirmar acerto", com dois toques, grava em `acertos` e trava o caixa.
+- "Confirmar acerto", com dois toques, grava em `acertos`, trava o caixa e as saídas e imprime o recibo. Reabrir é do admin, com motivo.
 
 **Resumo da noite:**
 - recebido por forma de pagamento;
@@ -184,29 +171,19 @@ Noite base: uma saída por pedido.
 - o que foi para a empresa;
 - faltas, sobras e entregas por cidade.
 
+**Noites antigas:** só leitura, com exportação em CSV.
+
+**Cadastro de motoboys** (gerente e admin): nome e ativo.
+
 ## Ordem de construção
 
-1. Monorepo (pnpm, TypeScript strict, Biome, Vitest, GitHub Actions) e `packages/dominio/src/acerto.ts`, com T1 a T19 passando.
-2. Supabase local: migrações das tabelas da fase 1 (ver ARQUITETURA, modelo de dados), RLS por papel, `aplicar_operacao` idempotente e `eventos`. Testes de acesso com uma conta de cada papel.
-3. `apps/web`: login, `repo.ts` com IndexedDB e fila, e as telas do motoboy (Noite com lançamento e porta).
-4. Acerto do motoboy e histórico.
-5. Painel do Luan: folha em tempo real, caixa do motoboy, confirmar acerto e resumo da noite.
-6. Coluna PIX com "caiu" e aviso no app do motoboy.
-7. Deploy: Supabase Pro em São Paulo e Cloudflare Pages. Instalar no celular.
-
-Pare no fim de cada etapa e resuma em poucas linhas.
-
-## Implantação
-
-1. **Noites 1 a 3:** só o caixa do Felipe, junto com o papel. No fim de cada noite, comparar com o acerto do Luan.
-2. **Depois:** todos os motoboys lançam; o Luan continua no papel e compara.
-3. **Depois:** o Luan faz o acerto pelo painel. A folha de papel sai quando três noites seguidas baterem.
+Ver MVP, etapas 4 e 5.
 
 ## Pronto quando
 
-- T1 a T19 passam.
-- Em modo avião, o motoboy lança e marca entregas; quando a internet volta, tudo sobe sozinho e nada duplica.
-- O painel mostra uma comanda nova em poucos segundos.
-- Um motoboy não vê o caixa de outro (teste com duas contas).
-- Depois do acerto confirmado, o motoboy não edita o caixa nem as saídas.
+- T1 a T20 passam.
+- Despachar um pedido leva no máximo dois toques, e o despacho aparece nos outros aparelhos em poucos segundos.
+- Sem internet, o Luan despacha e marca "Voltou"; quando a internet volta, tudo sobe sozinho e nada duplica.
+- Depois do acerto confirmado, ninguém edita o caixa nem as saídas; só o admin reabre, com motivo.
+- O fechamento da noite lista os pendentes de `ERROS-PREVISTOS.md`.
 - Uma noite real confirmada pelo Luan bate com o dinheiro na mão.

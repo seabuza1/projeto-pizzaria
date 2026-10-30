@@ -1,49 +1,56 @@
 # MVP sólido
 
-O primeiro produto que roda numa noite de verdade. Ele é a fase 1 inteira (`fases/F1-acerto.md`), mais a base técnica que fica para sempre e a impressão sem fio. Tudo o que estiver fora desta lista fica para depois. Regras em `PROJETO.md`, decisões técnicas em `ARQUITETURA.md`.
+O primeiro produto que roda numa noite de verdade: **o pedido nasce digitado, a comanda sai impressa, o Luan despacha e faz o acerto no painel.** O motoboy não usa o sistema (decisão 0007). Regras em `PROJETO.md`, decisões técnicas em `ARQUITETURA.md`, padrões em `PADROES.md`.
 
 ## Por que este recorte
 
-- **O que mais dói hoje é o acerto,** e foi o que o Luan pediu para a primeira semana. A fase 1 resolve isso sem mudar o atendimento, que é onde o Saipos falhou.
-- **A base técnica é a parte cara de refazer:** acesso por papel, fila offline, registro de mudanças e fuso. Por isso entra já no MVP, mesmo sem tela nova.
-- **A impressão sem fio entra cedo,** imprimindo o recibo do acerto. Assim o caminho da impressora fica provado antes da fase 2, quando a comanda inteira passa a depender dele.
+- **O pedido digitado tira o trabalho de todo mundo de uma vez:** o atendente não escreve, o Luan não anota na folha nem soma, e o motoboy só leva a comanda impressa. Antes, o plano começava pelo acerto com a comanda escrita à mão, e por isso o motoboy precisava lançar cada comanda num app. Isso saiu.
+- **Enxuto:** só entra o que tira trabalho manual de alguém hoje. Cada tela a mais é mais coisa para quebrar e manter (PROJETO, princípio 8).
+- **A base técnica é a parte cara de refazer:** acesso por papel, fila offline no balcão, registro de mudanças e fuso. Já está feita (etapas 1 a 3).
+- **Custo da mudança:** a primeira noite real demora mais do que no plano antigo, porque o MVP agora inclui o pedido digitado. Em troca, ninguém aprende uma tela que depois some.
 
 ## O que entra
 
-**1. Fase 1 completa** (`fases/F1-acerto.md`):
-- noite e caixas;
-- lançamento pelo motoboy e marcação na porta;
-- painel do Luan no formato da folha;
+**1. Atendimento** (`fases/F2-pedido.md`):
+- cardápio e preço (P1 a P11), com a gerente editando preços e marcando "acabou hoje";
+- clientes pelo telefone, com o último local;
+- tela de pedido com a trava de atendimento, rascunho, resumo para o WhatsApp e "Autorizado";
+- promoção da noite;
+- retirada no balcão.
+
+**2. Despacho e acerto no painel do Luan** (`fases/F1-acerto.md`):
+- noite, motoboys da noite e caixas;
+- despacho: o Luan toca nos códigos e no nome do motoboy;
+- "Voltou", "Trocou a forma" e "Saiu de novo";
 - acerto com liquidação, papel conferido e confirmação;
 - coluna PIX com "caiu" marcado à mão;
-- entregas por cidade e histórico.
-
-**2. Base técnica:**
-- monorepo, TypeScript strict, Biome, Vitest e GitHub Actions (tipos, lint, testes e migrações);
-- `packages/dominio` com as contas puras e os testes T1 a T19;
-- Supabase com RLS em todas as tabelas, `aplicar_operacao` idempotente, `operacoes` e `eventos`;
-- testes de acesso com uma conta de cada papel usado no MVP (`admin`, `gerente`, `expedicao`, `motoboy`, `agente`);
-- fila offline no aparelho, com o indicador "Salvo" ou "N alterações esperando internet";
-- fuso fixo da pizzaria em `config` (OPE e glossário);
-- **ambiente** em `config` (`producao` ou `teste`). Em teste, uma faixa amarela fixa diz "AMBIENTE DE TESTE" em todas as telas. É o que a bancada de testes vai usar (`BANCADA-TESTES.md`);
-- **interfaces das integrações já desenhadas,** mesmo sem uso: `ProvedorPix` e `Impressora`. A bancada troca as implementações reais por falsas sem mexer nas telas;
-- atualização do PWA: quando há versão nova, o app avisa "Atualizar" e nunca atualiza no meio de um lançamento;
-- registro de erros do front e das funções (tabela `erros` ou um serviço como o Sentry), sem dados de cliente, e o botão "Relatar problema";
-- horário do servidor nas operações, `versao_op` e versão mínima do app (ARQUITETURA, Robustez);
-- dinheiro só se acrescenta: correção é ajuste com motivo (OPE3);
-- MFA para `admin` e `gerente`;
-- batimento do agente de impressão e "Imprimir folha agora" e "Exportar a noite (CSV)" funcionando sem internet;
-- `docs/O-QUE-MUDOU.md` e os padrões de `docs/PADROES.md` desde o primeiro commit.
+- resumo da noite e noite antiga só para leitura, com CSV;
+- "Lançar comanda de papel", para quando a noite rodou no papel.
 
 **3. Impressão sem fio:**
 - **Agente** (`apps/agente`) no computador do balcão, com a conta de papel `agente`.
-- **Impressora térmica de 80 mm no Wi-Fi da loja,** com IP fixo. Ver ARQUITETURA, Impressão: Wi-Fi de fábrica, ou rede com ponte Wi-Fi.
+- **Impressora térmica de 80 mm no Wi-Fi da loja,** com IP fixo. Ver ARQUITETURA, Impressão.
 - **Layout com ReceiptLine**, em `packages/dominio/src/impressao/`.
-- **O que imprime no MVP:**
-  - **recibo do acerto** de cada motoboy, na confirmação, com espaço para as duas assinaturas;
-  - **folha da noite** no fechamento: as colunas por motoboy e os totais.
+- **O que imprime:**
+  - **comanda** ao autorizar o pedido (F2, Comanda impressa);
+  - **recibo do acerto** na confirmação, com espaço para as duas assinaturas;
+  - **folha da noite** só por botão, como reserva.
 - Reimprimir pelo painel.
-- **Sem internet:** o painel manda direto ao agente pela rede local (ARQUITETURA, Impressão).
+- **Sem internet:** o balcão manda direto ao agente pela rede local (ARQUITETURA, Impressão).
+
+**4. Base técnica** (feita nas etapas 1 a 3, manter):
+- monorepo, TypeScript strict, Biome, Vitest e GitHub Actions;
+- `packages/dominio` com as contas puras e os testes;
+- Supabase com RLS em todas as tabelas, `aplicar_operacao` idempotente, `operacoes` e `eventos`;
+- testes de acesso com uma conta de cada papel usado no MVP (`admin`, `gerente`, `expedicao`, `atendente`, `agente`);
+- fila offline no balcão, com o indicador "Salvo" ou "N alterações esperando internet";
+- fuso fixo da pizzaria e `ambiente` em `config`, com a faixa "AMBIENTE DE TESTE";
+- horário do servidor, `versao_op` e versão mínima do app;
+- dinheiro só se acrescenta (OPE3);
+- MFA para `admin` e `gerente`;
+- registro de erros e o botão "Relatar problema";
+- aviso de versão nova do PWA, que nunca atualiza no meio de um lançamento;
+- **funcionalidades como módulos removíveis** (PADROES, Módulos removíveis).
 
 Recibo do acerto (80 mm, 48 colunas):
 ```
@@ -83,25 +90,26 @@ Motoboy: ______________   Luan: ______________
 
 ## O que fica fora
 
-Fica para depois:
-- pedido digitado pelo atendente, cardápio, clientes e comanda impressa (fase 2);
-- cozinha, garçom e caixa geral;
-- Pix automático, conciliação da maquininha, NFC-e e WhatsApp API;
-- crédito e cobrança em dobro.
-
-A leitura de comanda por foto saiu do projeto: a partir da fase 2 a comanda já nasce digitada. Numa noite sem sistema, a comanda é escrita à mão e lançada depois pelo lançamento rápido da fase 1.
+- App, login ou tela para o motoboy (decisão 0007).
+- Troca rápida de usuário por PIN no balcão: o computador fica com a conta do atendimento, e o Luan e a gerente usam a própria conta (Felipe, 30/10).
+- Crédito do cliente e cobrança em dobro: a gerente resolve à mão, como hoje (Felipe, 30/10).
+- Cozinha, garçom e caixa geral (fases 3 a 5).
+- Pix automático, conciliação da maquininha, NFC-e e WhatsApp API, inclusive as interfaces "para o futuro".
+- Rota com várias paradas, aviso de retorno no sistema e marcação de "Entregue".
 
 ## Segurança (checklist do MVP)
 
 - **Acesso:** RLS em todas as tabelas, e nenhuma tabela legível pelo papel `anon`. O Supabase Advisors (Security) não pode ter alerta.
 - **Chaves:** no front, só a anon key. A service role nunca sai do servidor.
 - **Repositório:**
+  - **privado** no GitHub antes de entrar dado real;
   - `.env`, certificados (`*.p12`, `*.pem`) e backups `.json` ficam no `.gitignore`;
   - varredura de segredos no CI (por exemplo, gitleaks);
   - dependências com atualização automática (Dependabot) e `pnpm audit` no CI.
 - **Validação no servidor:** `aplicar_operacao` valida papel, estado e valores (inteiros em centavos, soma dos pagamentos = total). Não confia no aparelho.
-- **Contas:** autenticação por e-mail e senha, com senha forte. Contas de motoboy criadas pelo admin, sem cadastro aberto.
+- **Contas:** autenticação por e-mail e senha, com senha forte, criadas pelo admin, sem cadastro aberto.
 - **Texto livre** (observações) exibido sempre como texto, nunca como HTML.
+- **Dados de cliente:** telefone e endereço só no balcão e na comanda impressa. Logs sem dados de cliente.
 - **Backups:** Supabase Pro com backup diário, mais um `pg_dump` semanal guardado fora do Supabase.
 - **Teste de restauração:** restaurar o backup num projeto de teste uma vez antes da primeira noite real.
 
@@ -109,37 +117,44 @@ A leitura de comanda por foto saiu do projeto: a partir da fase 2 a comanda já 
 
 Pare no fim de cada etapa e resuma em poucas linhas.
 
-1. **Esqueleto:** monorepo, CI, Biome, a configuração do Claude Code (`CLAUDE-CODE.md`) e `packages/dominio/src/acerto.ts`, com T1 a T19 passando.
-2. **Banco local** (`supabase start`):
-   - migrações da fase 1, `config` com fuso e ambiente;
-   - RLS por papel, `aplicar_operacao`, `operacoes` e `eventos`;
-   - testes de acesso com uma conta de cada papel.
-3. **App do motoboy:** login, `repo.ts` com IndexedDB e fila, Noite (lançar e porta), Acerto e Histórico.
-4. **Painel do Luan:** folha em tempo real, caixa do motoboy, confirmar acerto, resumo da noite e coluna PIX.
-5. **Impressão sem fio:** layout com ReceiptLine (com testes de snapshot do texto gerado), agente, impressora no Wi-Fi, recibo do acerto, folha da noite e reimpressão.
-6. **Endurecimento:**
-   - checklist de segurança;
-   - registro de erros;
-   - aviso de versão nova do PWA;
-   - faixa de ambiente de teste;
-   - teste de restauração do backup.
-7. **Deploy:** Supabase Pro em São Paulo, Cloudflare Pages, agente instalado no computador do balcão e PWA instalado nos celulares.
+1. **Esqueleto** (feito): monorepo, CI, Biome, configuração do Claude Code e `acerto.ts` com T1 a T19.
+2. **Banco local** (feito): migrações, RLS, `aplicar_operacao`, `operacoes`, `eventos` e testes de acesso.
+3. **Fila offline e telas base** (feito): `repo.ts`, IndexedDB, fila, login com MFA. O app do motoboy também foi feito nesta etapa e sai na etapa 4.
+4. **Sem app do motoboy e módulos removíveis** (decisões 0007 e 0008). Um commit por passo, `pnpm check` verde em cada um:
+   1. registro de módulos e o teste que barra import entre funcionalidades (PADROES, Módulos removíveis);
+   2. mover para o painel do Luan o que serve: menu da saída ("Voltou", "Trocou a forma", "Saiu de novo", "Desfazer"), editor de pagamentos, conta detalhada e o lançamento rápido, que vira "Lançar comanda de papel";
+   3. remover com `/remover-funcionalidade motoboy`: rota `/motoboy`, troca de papel, "Volto em 5/10", "Entregue", histórico do motoboy e o teste de ponta a ponta do motoboy;
+   4. banco, em migração nova: tabela `motoboys` (nome, ativo), `caixas` e `saidas` apontando para ela; operações de caixa e saída só para `expedicao`, `gerente` e `admin`; políticas sem o ramo do motoboy;
+   5. domínio: T18 muda (saída sem "Voltou" conta como entregue, sem aviso) e entra T20 (dica de diferença, F1).
+5. **Painel do Luan** (F1): abrir a noite e escolher os motoboys, folha em tempo real, despacho, caixa do motoboy, acerto, coluna PIX, resumo da noite, cadastro de motoboys e noite antiga com CSV.
+6. **Cardápio, preço e clientes** (F2, partes 2a e 2g): `CardapioSchema`, `preco.ts` com P1 a P11, migrações, seed, tela de preços da gerente e "acabou hoje".
+7. **Tela de pedido** (F2, partes 2b e 2e): telefone, trava, itens, entrega, pagamento, total, resumo, autorização e retirada.
+8. **Impressão sem fio:** agente, impressora no Wi-Fi, comanda, recibo do acerto, folha e reimpressão, com testes de snapshot do texto gerado.
+9. **Endurecimento:** checklist de segurança, batimento do agente, plano de contingência colado no balcão e teste de restauração do backup.
+10. **Deploy:** Supabase Pro em São Paulo, Cloudflare Pages, agente no computador do balcão e o app instalado no computador e no celular do Luan.
 
 ## Implantação
 
-1. **Noites 1 a 3:** só o caixa do Felipe, junto com o papel. No fim, comparar com o acerto do Luan.
-2. **Noites 4 a 6:** todos os motoboys lançam. O Luan ainda faz no papel e compara com o painel.
-3. **Depois:** o Luan faz o acerto pelo painel e imprime o recibo. A folha de papel sai quando três noites seguidas baterem.
+1. **Uma quarta-feira** (a noite mais fraca): um atendente digita todos os pedidos e a comanda sai impressa. A comanda à mão continua em paralelo. O Luan despacha no sistema e faz o acerto no papel; no fim, comparar.
+2. **Noites 2 a 4:** só a comanda impressa. O Luan faz o acerto no papel e no sistema e compara.
+3. **Depois:** acerto só pelo sistema, com o recibo impresso. A folha de papel sai quando três noites seguidas baterem.
+4. O grupo de entregas no WhatsApp continua para localização pendente e aviso de retorno.
+5. Antes da primeira noite, o Luan e os atendentes leem o guia "Como a Mel funciona com o sistema".
 
 ## Pronto quando
 
-- Valem todos os itens de "Pronto quando" de `fases/F1-acerto.md`.
-- O checklist de segurança está cumprido, e o Advisors não mostra alerta de segurança.
-- O recibo do acerto sai na impressora sem fio em até 5 s depois da confirmação, inclusive com a internet desligada (pelo agente na rede local).
+- T1 a T20 e P1 a P11 passam.
+- Dois atendentes não pegam o mesmo telefone sem aviso.
+- Um pedido autorizado imprime em até 5 s, inclusive sem internet (pelo agente na rede local).
+- Despachar um pedido leva no máximo dois toques.
+- O recibo do acerto sai em até 5 s depois da confirmação, inclusive sem internet.
+- O teste de módulos passa e não sobra referência ao app do motoboy.
+- O checklist de segurança está cumprido, e o Advisors não mostra alerta.
 - O backup foi restaurado com sucesso num projeto de teste.
+- O tempo de atendimento medido em 10 pedidos é menor que o do papel.
 - Uma noite real inteira rodou sem papel de soma, e o dinheiro bateu.
 
 ## Depois do MVP
 
-1. **Bancada de testes** (`BANCADA-TESTES.md`): Pix falso, impressora virtual, noite simulada e falhas de rede, para saber se o sistema responde antes de cada mudança grande.
-2. **Fase 2** (`fases/F2-pedido.md`).
+1. **Bancada de testes** enxuta (`BANCADA-TESTES.md`): noite simulada, impressora virtual e falhas de rede.
+2. **Fases 3 a 6 e integrações:** sem data, só quando o Felipe pedir (`fases/F3-a-F6.md`).

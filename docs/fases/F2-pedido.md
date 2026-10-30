@@ -1,6 +1,6 @@
-# Fase 2: pedido digitado, clientes, comanda impressa e despacho
+# Fase 2: pedido digitado e comanda impressa
 
-Parte da fase 1 pronta e em uso. As regras estão em `docs/PROJETO.md`, a arquitetura em `docs/ARQUITETURA.md` e a pesquisa que embasa esta fase em `docs/referencia/pesquisa-pedidos-pagamentos.md`.
+Parte do MVP. As regras estão em `docs/PROJETO.md`, a arquitetura em `docs/ARQUITETURA.md`, os erros previstos em `docs/ERROS-PREVISTOS.md` e a pesquisa que embasa esta fase em `docs/referencia/pesquisa-pedidos-pagamentos.md`.
 
 ## Antes de construir
 
@@ -16,7 +16,7 @@ As respostas podem mudar telas desta spec. Atualize a spec antes do código.
 
 ## Objetivo
 
-O pedido nasce digitado pelo atendente, durante a conversa no WhatsApp, em vez de escrito à mão. A comanda sai impressa com o código grande. O despacho passa para o sistema: o motoboy pega a entrega com um toque e abre a localização no app, o que substitui o grupo de entregas e a folha.
+O pedido nasce digitado pelo atendente, durante a conversa no WhatsApp, em vez de escrito à mão. A comanda sai impressa com tudo o que a cozinha e o motoboy precisam. O despacho e o acerto ficam no painel do Luan (F1).
 
 Hoje, anotar um pedido leva de 3 a 5 minutos (Luan). Meta: o tempo do atendente cair. Medir antes e depois, em 10 pedidos de cada jeito.
 
@@ -24,91 +24,88 @@ Hoje, anotar um pedido leva de 3 a 5 minutos (Luan). Meta: o tempo do atendente 
 
 - Quem deu certo não tirou o atendimento humano. O atendente digita no sistema enquanto conversa, e o link fica como opção (fase 6).
 - A tela do atendente tem que ser feita para conversa. Uma rede de pizza tentou usar a tela de pedido online para digitar pedidos de telefone e desistiu.
-- O pedido de qualquer canal cai numa fila só, para a cozinha e a expedição.
+- O pedido de qualquer canal cai numa fila só.
 
 ## Partes
 
 ### 2a. Cardápio e clientes
-- **Cardápio:** tabelas `cardapio_*`, semeadas a partir de `docs/dados/cardapio-mel.json`. A gerente edita preços e liga ou desliga itens.
+- **Cardápio:** tabelas `cardapio_*`, semeadas a partir de `docs/dados/cardapio-mel.json`.
   - Pizza: faixa (`tradicional`, `especial`, `premium`, `doce`, `doce_especial`) × tamanho (B, P, M, G).
   - Bordas, adicionais (R$ 10 cada), bebidas e combos com preço fixo.
   - Apelidos (como "filé" e "4 queijos") para a busca.
-- **Clientes:** telefone completo (com DDD) e nome.
-  - Locais: pino (latitude e longitude), link do Maps, endereço escrito, referência e área.
+- **Edição pela gerente** (`/gerente/cardapio`, gerente e admin): preços e itens. Toda mudança de preço grava em `eventos` (quem, quando, de quanto para quanto). Pedido antigo não muda (fotografia em `pedido_itens`).
+- **"Acabou hoje":** gerente, expedição ou atendente desligam um item só nesta noite. Na noite seguinte ele volta sozinho.
+- **Clientes:** telefone completo (com DDD), nome e o **último local** (pino ou link do Maps, endereço escrito, referência e área). Um local só por cliente: o pedido guarda o endereço usado, e "Repetir" um pedido antigo traz o endereço dele.
   - Ao digitar o telefone, aparecem o nome, o último local e os últimos 5 pedidos.
 - **Importação:** clientes entram aos poucos, conforme pedem. Não há base antiga para importar.
 - **Cardápio validado:** o JSON é conferido por um schema Zod (`CardapioSchema`, em `packages/db`) num teste do domínio. O hook de testes roda esse teste quando `docs/dados/` muda, e o seed não roda com um cardápio inválido.
 
 ### 2b. Tela de pedido do atendente (`/atendimento`)
 
+**Quem usa:** o computador do balcão fica com a conta do atendimento (papel `atendente`). O Luan e a gerente usam a própria conta. Sem troca de usuário por PIN (Felipe, 30/10).
+
 **Layout:**
 - **Tela larga:** pensada para computador ou tablet, ao lado do WhatsApp Web.
 - **Celular:** funciona numa coluna só.
-- **Lateral:** os pedidos abertos.
+- **Lateral:** os pedidos abertos, com o tempo parado ("aguardando cliente há 8 min").
 
 **Fluxo:**
 1. **Telefone primeiro.** O código são os 4 últimos dígitos.
-   - Se outra pessoa já está atendendo esse telefone: "Ana está atendendo 3557 há 2 min", com a opção "Assumir".
-   - A trava fica em `pedidos.atendendo_por` e é liberada ao confirmar, cancelar ou depois de 10 min parado.
+   - Se outro aparelho já está atendendo esse telefone: "Atendendo 3557 em outro aparelho há 2 min", com a opção "Assumir".
+   - A trava fica em `pedidos.atendendo_por` e `atendendo_aparelho`, e é liberada ao autorizar, cancelar ou depois de 10 min parado.
+   - Código repetido na noite: aviso e segundo toque (PED1).
 2. **"Repetir"** um pedido anterior com um toque, e editar.
 3. **Itens.**
-   - Busca de sabor com 2 ou 3 letras, que acha nome e apelido.
+   - Busca de sabor com 2 ou 3 letras, que acha nome e apelido. Item com "acabou hoje" aparece riscado e não entra.
    - Tamanho em chips. Meio a meio é tocar no segundo sabor.
    - Borda, adicional, bebida e combo.
    - **Palavra ambígua:** "frango" ou "lombo" mostram as opções; a lista vem de `ambiguidades` no JSON.
 4. **Entrega ou retirada.**
    - Área sugerida pelo local do cliente, com a taxa somada sozinha.
-   - Sem local: "Pedir localização" e o pedido segue, com a localização marcada como pendente.
+   - Sem local: "Pedir localização", e o pedido segue com a localização marcada como pendente.
 5. **Pagamento.**
    - Forma prevista, inclusive mista, e troco ("troco para 100").
-   - Se o cliente tem crédito, aparece "Usar crédito de R$ X".
+   - Pix antecipado: o pedido fica "PIX: CONFERIR" até o Luan marcar "caiu" (PAG5).
 6. **Total.** Calculado pelo domínio, com a promoção da noite aplicada e mostrada.
-7. **"Mandar resumo".** Abre a conversa do cliente no WhatsApp com o texto pronto e o atendente só aperta Enter. Exemplo:
+7. **"Mandar resumo".** Abre a conversa do cliente no WhatsApp com o texto pronto, e o atendente só aperta Enter. Exemplo:
    > Pedido 3557: G ½ Filé Mignon ½ Calabresa + Refrigerante 2L · entrega em Aragarças (hospital) · total R$ 113,00 · cartão na entrega. Posso mandar para a produção?
 8. **"Autorizado".** O pedido vai para a produção, e a comanda é impressa.
 
 **Rascunhos:** um pedido pode ficar parado em "aguardando cliente" e ser retomado. A gerente atende o caixa e o WhatsApp ao mesmo tempo e é interrompida o tempo todo.
 
-**Estados do pedido:** rascunho → aguardando autorização → em produção → pronto → (entrega: saída) ou (retirada: retirado) · cancelado.
+**Alterar depois de autorizado:** enquanto o pedido não saiu, o atendente pode trocar itens, área ou pagamento. O total é recalculado, e a comanda é reimpressa com "ALTERADO" no topo; a cozinha é avisada à mão. Depois que saiu, só pelo Luan ("Trocou a forma") ou por cancelamento.
+
+**Cancelar:** com motivo, a qualquer momento antes do acerto. Pedido com Pix antecipado cancelado fica marcado para a gerente resolver (pergunta 12).
+
+**Estados do pedido:** rascunho → aguardando cliente → em produção → saiu (uma ou mais saídas) ou retirado · cancelado. Não há estado "pronto": a cozinha não marca nada nesta fase, e o Luan despacha quando a pizza sai.
 
 ### 2c. Comanda impressa
 - O agente de impressão entra nesta fase (ver ARQUITETURA, Impressão).
 - **Conteúdo, em 80 mm:**
   - código grande e asterisco se tiver promoção;
+  - "ALTERADO" quando for reimpressão de pedido alterado;
   - itens;
-  - entrega ou retirada, área e referência;
-  - total e pagamento;
-  - hora;
-  - QR com o id do pedido.
-- A comanda ainda vai à mão até a cozinha. A impressão automática na cozinha é a fase 3.
+  - entrega ou retirada, área, endereço e referência;
+  - **QR do Maps** quando houver pino ou link; sem local, "SEM LOCALIZAÇÃO" em destaque;
+  - total, forma prevista e troco ("TROCO PARA 100");
+  - **Pix antecipado:** "PIX PAGO" se já caiu na hora da impressão; senão "PIX: CONFERIR" (Felipe, 30/10);
+  - hora.
+- A mesma comanda vai à cozinha levada à mão, sai com o motoboy e volta com ele. A impressão automática na cozinha é a fase 3.
 - **Reimprimir** com um toque, para comanda perdida.
 
-### 2d. Despacho no sistema
-- **Fila de prontos para entrega** na expedição, por ordem de balcão.
-- **O motoboy pega a entrega** no app, antes de sair (substitui o 👍 no grupo e a anotação na folha).
-  - Pode pegar mais de uma; em média são 2 e no máximo 5.
-  - O Luan pode **separar** um pedido para quem avisou o retorno.
-- **Na saída**, o app do motoboy mostra:
-  - o pedido, o total e a forma;
-  - o status do Pix;
-  - os botões "Abrir no Maps" (pino ou link), "Ligar" e "WhatsApp do cliente".
-- **Localização pendente:** fica marcada e o Luan é avisado. Quando chega, ela é salva no cliente.
+### 2d. Localização
+- **Pendente:** a comanda sai com "SEM LOCALIZAÇÃO" e o pedido fica marcado na lista. Quando o cliente manda, o atendente cola o link no pedido (salva no cliente) e manda ao motoboy pelo grupo de entregas, como hoje.
 - **Endereço escrito:** quem achar o pino no Maps salva no cliente, e o próximo pedido já vem com ele.
-- A porta e o acerto continuam como na fase 1. A diferença é que nada mais é digitado pelo motoboy além da forma real.
-- Durante a transição, o grupo de WhatsApp continua como reserva.
 
 ### 2e. Retiradas
-- Lista de retiradas com o estado ("em produção", "pronto").
+- Pedido do tipo retirada, sem taxa.
 - **"Avisar":** abre a conversa com a mensagem pronta ("Seu pedido 3557 está pronto para retirada").
 - Ao retirar, marcar como retirado e registrar o pagamento do balcão.
-
-### 2f. Troca rápida de usuário no balcão
-- O computador do balcão fica com uma sessão aberta.
-- Cada pessoa (atendente, Luan, gerente) entra com um PIN de 4 a 6 dígitos para que cada pedido fique no nome de quem fez.
-- O PIN só vale naquele computador, e o sistema volta para a tela de PIN depois de 5 minutos parado.
+- Detalhes dependem da pergunta 4.
 
 ### 2g. Promoção da noite
 - Ao abrir a noite, a gerente ou a expedição define o desconto (de R$ 3 a R$ 23), ou "sem promoção".
+- Sem promoção definida, a tela de pedido mostra o aviso "Promoção da noite não definida".
 - O domínio aplica a promoção conforme PED4.
 
 ## Cálculo do pedido: `packages/dominio/src/preco.ts`
@@ -139,39 +136,23 @@ total                        = itens + taxa da área (0 na retirada)            
 
 ## Banco (migrações novas)
 
-- `clientes` e `cliente_locais`.
-- `cardapio_faixas`, `cardapio_sabores`, `cardapio_bordas`, `cardapio_adicionais`, `cardapio_bebidas` e `cardapio_combos`.
+- `clientes` (telefone, nome e o último local).
+- `cardapio_faixas`, `cardapio_sabores`, `cardapio_bordas`, `cardapio_adicionais`, `cardapio_bebidas`, `cardapio_combos` e `cardapio_acabou` (item e noite).
 - `pedido_itens`, com uma fotografia do momento da venda: nome, faixa cobrada, preço unitário e desconto. Mudar o cardápio não altera pedidos nem relatórios antigos (o mesmo princípio da taxa, ENT2).
-- `pedidos`: estados novos e a trava de atendimento.
-- `impressoes`, `creditos` e `cobrancas_dobro`.
+- `pedidos`: estados novos, endereço usado, local pendente e a trava de atendimento.
 - **Acesso:**
-  - atendente: cria e edita pedidos e clientes;
-  - motoboy: vê o cliente só das próprias saídas da noite;
-  - cozinha: vê itens, sem telefone nem endereço.
+  - atendente: cria e edita pedidos e clientes, e marca "acabou hoje";
+  - expedição: tudo do atendente, mais despacho e acerto;
+  - gerente e admin: tudo, mais preços do cardápio.
 
 ## Ordem de construção
 
-1. `CardapioSchema` validando `docs/dados/cardapio-mel.json`, e `preco.ts` com P1 a P11 passando.
-2. Migrações do cardápio e dos clientes, e seed a partir do JSON.
-3. Tela de pedido: troca rápida por PIN, telefone, trava, itens, entrega, pagamento, total, resumo e autorização.
-4. Agente de impressão e comanda impressa (testar com impressora de rede de verdade).
-5. Despacho: fila de prontos, pegar entrega, separar e app do motoboy com Maps e WhatsApp.
-6. Retiradas.
-7. Crédito e cobrança em dobro (PAG8, PAG9).
-
-Pare no fim de cada etapa e resuma em poucas linhas.
-
-## Implantação
-
-1. **Uma quarta-feira** (noite mais fraca): um atendente digita todos os pedidos e a comanda à mão continua em paralelo. No fim, comparar.
-2. **Duas ou três noites** só com a comanda impressa; a escrita à mão vira reserva.
-3. **Despacho pelo sistema**, com o grupo de WhatsApp ainda ativo como reserva por uma semana.
-4. Medir o tempo por pedido e quantos pedidos tiveram erro de anotação.
+Ver MVP, etapas 6 a 8.
 
 ## Pronto quando
 
 - P1 a P11 passam, e os testes da fase 1 continuam passando.
-- Dois atendentes não pegam o mesmo telefone sem aviso.
+- Dois aparelhos não pegam o mesmo telefone sem aviso.
 - Um pedido autorizado imprime em até 5 s, inclusive sem internet (pelo agente na rede local).
-- O motoboy pega a entrega e abre a localização sem o grupo de WhatsApp.
+- Um pedido alterado reimprime com "ALTERADO", e o total novo vale para o acerto.
 - O tempo de atendimento medido é menor que o do papel.

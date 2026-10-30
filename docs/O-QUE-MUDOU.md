@@ -17,3 +17,4 @@ Escrito para o Luan e a gerente. Uma linha por mudança que aparece na tela, com
 | 30/10/2026 | Coluna PIX: tocar no Pix marca "caiu"; o motoboy vê "Pix confirmado" no celular. | Luan: marcar quando o Pix cair. |
 | 30/10/2026 | Caixa do motoboy no painel: marcar os papéis que chegaram, digitar o dinheiro contado e confirmar o acerto com dois toques; a tela diz quanto pagar do caixa dele e quanto tirar do caixa da empresa. | Luan: conferir a conta da tela antes de confirmar. |
 | 30/10/2026 | Resumo da noite e "Exportar a noite (CSV)", que funciona mesmo sem internet. | Não. |
+| 30/10/2026 | O app do motoboy saiu do plano: o motoboy não usa o sistema. Ele leva a comanda impressa (com QR do mapa e a situação do Pix) e recebe o recibo do acerto. O Luan registra quem levou cada pedido, o que voltou e a forma que mudou. | Motoboys: não precisam instalar nada. Quando o cliente pagar diferente da comanda, anotar a forma real na própria comanda. |

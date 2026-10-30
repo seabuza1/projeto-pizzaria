@@ -4,12 +4,12 @@ Decidida em 30/10/2026 a partir da pesquisa (fontes no fim). As decisões têm o
 
 ## Em uma frase
 
-Um app web instalável (PWA) em **TypeScript**, que funciona sem internet e grava primeiro no aparelho. Por trás, o **Supabase** (Postgres, login, tempo real, arquivos e funções), na região de São Paulo. Um **agente de impressão** pequeno roda no computador do balcão. Um servidor de integrações só entra se o Pix escolhido exigir certificado.
+Um app web instalável (PWA) em **TypeScript**, usado no balcão (atendimento, Luan e gerente), que funciona sem internet e grava primeiro no aparelho. O motoboy não usa o sistema (decisão 0007). Por trás, o **Supabase** (Postgres, login, tempo real, arquivos e funções), na região de São Paulo. Um **agente de impressão** pequeno roda no computador do balcão. Um servidor de integrações só entra se o Pix escolhido exigir certificado.
 
 ## O que a arquitetura precisa atender
 
-1. **Celular na rua:** o motoboy usa o próprio celular (Android ou iPhone), às vezes sem sinal. Nada de instalar app de loja.
-2. **Várias pessoas ao mesmo tempo:** atendentes, Luan, motoboys e gerente veem a mesma noite em tempo real.
+1. **Balcão que não para:** computador do balcão e celular do Luan, às vezes com a internet caída. Nada de instalar app de loja.
+2. **Várias pessoas ao mesmo tempo:** atendentes, Luan e gerente veem a mesma noite em tempo real.
 3. **Dinheiro:** as contas precisam ser exatas, testadas e auditáveis. A falta é descontada de uma pessoa.
 4. **Impressora térmica:** comanda na cozinha e no balcão, inclusive sem internet.
 5. **Integrações brasileiras:** Pix com confirmação automática, maquininha, NFC-e e WhatsApp.
@@ -41,14 +41,14 @@ Um app web instalável (PWA) em **TypeScript**, que funciona sem internet e grav
 | App nativo (Flutter ou Kotlin) | Bluetooth e USB direto, offline forte | Instalar APK em cada celular, iPhone à parte, outra linguagem | Não. A web cobre o que precisa, e a impressão fica com o agente |
 | PHP/Laravel + MySQL, comum em PDV brasileiro | Muita gente sabe, hospedagem barata | Servidor sempre ligado; tempo real e offline ficam por sua conta | Não |
 | Firebase | Offline pronto | Banco de documentos atrapalha as contas e os relatórios; as regras de acesso são menos expressivas que SQL | Não |
-| Servidor local na pizzaria (SQLite, PocketBase) | Funciona sem internet na rede local | O motoboy na rua precisa da nuvem de qualquer jeito; backup e acesso remoto ficam com vocês | Só a impressão fica local (o agente) |
+| Servidor local na pizzaria (SQLite, PocketBase) | Funciona sem internet na rede local | Backup, acesso remoto (gerente fora da loja, manutenção do Felipe) e o servidor ligado ficam com vocês. A fila offline já cobre a internet caída. Trocar agora seria reescrever | Só a impressão fica local (o agente) |
 | Next.js com SSR | Tudo num projeto só | O app é offline e não ganha nada com SSR; Vercel comercial é paga | Não |
 | PowerSync no lugar da fila própria | Sincronização pronta | US$ 49 por mês no Pro (o grátis desativa após 1 semana parado); mais uma peça | Plano B se a fila própria der problema |
 
 ## Desenho
 
 ```
- Celulares (motoboys, Luan)      Balcão (atendente, gerente)          Cliente
+ Celular do Luan                 Balcão (atendente, gerente)          Cliente
  ┌───────────────────────┐       ┌──────────────────────────┐       ┌──────────┐
  │ PWA  apps/web         │       │ PWA apps/web             │       │ apps/    │
  │ IndexedDB + fila      │       │ IndexedDB + fila         │       │ cliente  │
@@ -74,7 +74,7 @@ Um app web instalável (PWA) em **TypeScript**, que funciona sem internet e grav
 **Leitura:** cada aparelho guarda a noite aberta no IndexedDB (pedidos, saídas, pagamentos, caixas, áreas, cardápio). As telas leem dali com `liveQuery`. Ao abrir, o app baixa a noite; depois recebe as mudanças pelo Realtime, filtradas pela noite. Se ficar mais de 1 minuto sem Realtime, ele baixa de novo.
 
 **Escrita (fila de operações):**
-1. Toda ação vira uma **operação**: `{ id, tipo, dados, criada_em, aparelho }`. O `id` é um UUID v7 gerado no aparelho. Exemplos: `lancar_saida`, `marcar_entregue`, `trocar_pagamento`, `voltou`, `confirmar_acerto`.
+1. Toda ação vira uma **operação**: `{ id, tipo, dados, criada_em, aparelho }`. O `id` é um UUID v7 gerado no aparelho. Exemplos: `despachar`, `trocar_pagamento`, `mudar_estado_saida` (voltou), `confirmar_acerto`.
 2. A operação é aplicada na hora no IndexedDB e entra na fila.
 3. A fila envia as operações em ordem para a função `aplicar_operacao(op jsonb)` no Postgres (RPC). Ela:
    - é **idempotente**: guarda o `id` em `operacoes` e ignora repetidas;
@@ -88,7 +88,8 @@ Um app web instalável (PWA) em **TypeScript**, que funciona sem internet e grav
 - As regras ficam no esquema `interno`, que a API não expõe: uma função `op_<tipo>` por operação, os ajudantes de papel usados nas políticas e a conta do acerto (`interno.conta_caixa`).
 - **A conta do acerto existe duas vezes:** em `packages/dominio` (telas) e em SQL (confirmação). Na confirmação, o aparelho manda a `versao_esperada` do caixa e os valores que o Luan viu; o servidor recalcula e recusa se não bater. Os testes de `supabase/tests` conferem que as duas dão o mesmo resultado nos casos da spec (decisão 0003).
 - **Versões e anulação:** `pedidos` e `caixas` têm `versao`; `cancelar_saida`, `trocar_pagamento` e `confirmar_acerto` levam `versao_esperada`. Nada de dinheiro é apagado: saídas são canceladas e pagamentos, sobras e faltas anulados, com motivo (decisão 0004). Recusas trazem `codigo`, igual aos do domínio.
-- Operações da fase 1: `abrir_noite`, `fechar_noite`, `reabrir_noite`, `abrir_caixa`, `editar_caixa`, `avisar_retorno`, `lancar_saida`, `cancelar_saida`, `mudar_estado_saida`, `trocar_pagamento`, `sair_de_novo`, `conferir_papel`, `informar_contado`, `confirmar_acerto`, `reabrir_acerto`, `marcar_pix`, `pedir_impressao`, `atualizar_impressao`, `registrar_impressao_local`, `salvar_area`, `salvar_config` e `salvar_perfil`. O formato de cada uma está em `packages/db/src/operacoes.ts`.
+- Operações da fase 1: `abrir_noite`, `fechar_noite`, `reabrir_noite`, `abrir_caixa`, `editar_caixa`, `lancar_saida` (vira "Lançar comanda de papel", só da expedição), `cancelar_saida`, `mudar_estado_saida` (só "voltou" e desfazer), `trocar_pagamento`, `sair_de_novo`, `conferir_papel`, `informar_contado`, `confirmar_acerto`, `reabrir_acerto`, `marcar_pix`, `pedir_impressao`, `atualizar_impressao`, `registrar_impressao_local`, `salvar_area`, `salvar_config` e `salvar_perfil`. Entram `despachar` e `salvar_motoboy`; sai `avisar_retorno` (decisão 0007). O formato de cada uma está em `packages/db/src/operacoes.ts`.
+- **Operação presa:** recusada por erro inesperado várias vezes, ela não some do aparelho. Fica numa lista de presas, com os dados completos, aviso ao admin e botão para reenviar.
 
 **Conflitos e concorrência:** o servidor recebe ações, e não linhas inteiras, então quase não há conflito. Para o resto:
 - **Cada operação roda numa transação só.** `aplicar_operacao` trava a linha que vai mudar (`select ... for update` no pedido, no caixa ou na conta da mesa), valida e grava, ou desfaz tudo.
@@ -103,7 +104,7 @@ Um app web instalável (PWA) em **TypeScript**, que funciona sem internet e grav
 
 ## Impressão
 
-- **Fila no banco:** a tabela `impressoes` guarda cada trabalho (tipo, impressora de destino, conteúdo, estado, tentativas). Qualquer aparelho pode pedir uma impressão, inclusive o celular do motoboy.
+- **Fila no banco:** a tabela `impressoes` guarda cada trabalho (tipo, impressora de destino, conteúdo, estado, tentativas). Qualquer aparelho da equipe pode pedir uma impressão.
 - **Agente** (`apps/agente`, Node + TypeScript):
   - roda no computador do balcão com uma conta de papel `agente` (nunca com a service role);
   - escuta `impressoes` pelo Realtime, e também consulta a cada 10 s;
@@ -119,7 +120,7 @@ Um app web instalável (PWA) em **TypeScript**, que funciona sem internet e grav
 
 ## Integrações
 
-Cada integração fica atrás de uma interface em `packages/dominio/src/integracoes/`, para trocar de fornecedor sem mexer nas telas.
+**Sem data** (fora do MVP). Quando uma entrar, ela fica atrás de uma interface em `packages/dominio/src/integracoes/`, para trocar de fornecedor sem mexer nas telas. A interface nasce junto com a integração (PADROES, Enxuto).
 
 | Integração | Como | Onde roda |
 |---|---|---|
@@ -159,11 +160,11 @@ Cada integração fica atrás de uma interface em `packages/dominio/src/integrac
 ## Segurança e dados pessoais
 
 - **Regras de acesso:** RLS em todas as tabelas, com funções `security definer` para ler o papel (modelo em `referencia/schema-v1.sql`).
-- **Papéis:** `admin`, `gerente`, `expedicao`, `atendente`, `motoboy`, `cozinha`, `garcom`, `agente`.
-- **Testes de acesso:** um teste por papel com contas reais no Supabase local. Exemplos: o motoboy não vê o caixa de outro, e não edita depois do acerto.
+- **Papéis em uso:** `admin`, `gerente`, `expedicao`, `atendente` e `agente`. `cozinha` e `garcom` só quando as fases 3 e 4 entrarem. `motoboy` fica no enum sem uso (decisão 0007).
+- **Testes de acesso:** um teste por papel com contas reais no Supabase local. Exemplos: o atendente não confirma acerto, ninguém edita depois do acerto confirmado, e `anon` não lê nada.
 - **Contas:** MFA (código no app autenticador) obrigatório para `admin` e `gerente`. Os limites de tentativa de login do Supabase ficam ligados.
 - **Chaves:** no front, só a anon key. A service role e as chaves de API ficam nos secrets do Supabase ou do servidor. Backups `.json` e `.env` ficam fora do repositório (`.gitignore`).
-- **Dados de cliente** (telefone, endereço, localização): o motoboy vê só os das próprias saídas da noite. Os logs não levam dados pessoais.
+- **Dados de cliente** (telefone, endereço, localização): só a equipe do balcão vê no sistema; o motoboy recebe na comanda impressa das entregas dele. Os logs não levam dados pessoais.
 - **Backups:** os backups diários do Supabase Pro e um `pg_dump` semanal guardado fora do Supabase.
 
 ## Hospedagem e custos mensais
@@ -185,25 +186,24 @@ mel-pdv/
   CLAUDE.md
   .claude/                   settings.json (permissões, plugins, hooks) e hooks/ (ver docs/CLAUDE-CODE.md)
   .mcp.json                  MCP do Supabase, somente leitura, projeto de desenvolvimento
-  docs/                      MVP, PROJETO, ARQUITETURA, BANCADA-TESTES, CLAUDE-CODE, fases/, dados/, referencia/
+  docs/                      MVP, PROJETO, ARQUITETURA, PADROES, ERROS-PREVISTOS, BANCADA-TESTES,
+                             CLAUDE-CODE, O-QUE-MUDOU, decisoes/, fases/, dados/, referencia/
   apps/
-    web/                     PWA da equipe: /motoboy, /expedicao (painel do Luan), /atendimento,
-                             /gerente, /cozinha, /garcom, /admin
+    web/                     PWA da equipe: /expedicao (painel do Luan), /atendimento, /gerente
+      src/funcionalidades/   um módulo por pasta, listados em index.ts (PADROES, Módulos removíveis)
+      src/compartilhado/     o que dois ou mais módulos usam
       src/data/repo.ts       única porta de dados das telas
-    cliente/                 página pública de pedido (fase 6)
     agente/                  agente de impressão
-    integracoes/             só se o Pix exigir mTLS
-    bancada/                 ambiente de testes: Pix falso, impressora virtual, noite simulada (depois do MVP)
   packages/
-    dominio/                 regras e contas puras, com testes (acerto, pedido, preço, conciliação,
-                             layout de impressão, interfaces das integrações)
+    dominio/                 regras e contas puras, com testes (acerto, pedido, preço, layout de impressão)
     db/                      tipos gerados do banco (`supabase gen types`) e schemas Zod
   supabase/
     migrations/              uma migração por mudança, sempre versionada
-    functions/               aplicar_operacao fica no SQL; pix-webhook e nfce aqui
-    seed.sql                 áreas, cardápio (de docs/dados/cardapio-mel.json) e contas de teste
-    tests/                   testes de RLS por papel
+    seed.sql                 áreas, cardápio (de docs/dados/cardapio-mel.json), motoboys e contas de teste
+    tests/                   testes de RLS por papel, de aplicar_operacao e dos erros previstos
 ```
+
+Pastas que só nascem com a sua fase: `apps/cliente` (fase 6), `apps/integracoes` (só se o Pix exigir mTLS), `supabase/functions` (integrações) e `/cozinha` e `/garcom` (fases 3 e 4).
 
 ## Modelo de dados (núcleo)
 
@@ -211,22 +211,22 @@ Dinheiro sempre em centavos (`integer`). Os IDs são `uuid` gerados no aparelho.
 
 | Tabela | Campos principais | Fase |
 |---|---|---|
-| `perfis` | id (auth), nome, papeis (lista: o Felipe é `admin` e `motoboy`), ativo | 1 |
-| `config` | fuso (`America/Sao_Paulo`), fases ligadas, padrões (caixa 8000, diária 3000) | 1 |
+| `perfis` | id (auth), nome, papeis (lista), ativo. Só quem usa o sistema | 1 |
+| `motoboys` | nome, ativo. Cadastro sem login (decisão 0007) | 1 |
+| `config` | fuso (`America/Sao_Paulo`), funcionalidades desligadas (OPE1), padrões (caixa 8000, diária 3000) | 1 |
 | `areas` | nome, cidade, taxa, ativa | 1 |
 | `noites` | data, promo_desconto, aberta_em, fechada_em | 1 |
 | `caixas` | noite, motoboy, caixa_inicial, diaria, ordem_chegada, dinheiro_contado, fechado_em | 1 |
-| `pedidos` | noite, codigo (4 dígitos), cliente (nulo na fase 1), origem, tipo, area, total, promocao, estado, atendendo_por, atendendo_desde, obs | 1 |
+| `pedidos` | noite, codigo (4 dígitos), cliente (nulo na comanda de papel), origem, tipo, area, endereço usado, local pendente, total, promocao, estado, atendendo_por, atendendo_aparelho, atendendo_desde, obs | 1 |
 | `pedido_itens` | pedido, tipo, tamanho, sabores, item, quantidade e uma fotografia do momento da venda (nome, faixa cobrada, preço unitário, desconto da promoção). Relatórios antigos não mudam quando o cardápio muda | 2 |
-| `saidas` | pedido, motoboy, caixa, taxa (gravada), estado (separada, em_rota, entregue, voltou), saiu_em, voltou_em, papel_conferido | 1 |
+| `saidas` | pedido, motoboy (de `motoboys`), caixa, taxa (gravada), estado (em_rota ou voltou; `separada` e `entregue` ficam sem uso), saiu_em, voltou_em, papel_conferido, cancelada | 1 |
 | `pagamentos` | pedido, forma, valor, troco_pix, previsto ou real, saida (quem recebeu na porta), pix_confirmado e origem (manual, webhook, maquininha), referência externa (txid, NSU) | 1 |
 | `acertos` | caixa, valores congelados (contado, falta, sobra, pago, do caixa dele, retirado do caixa da empresa, vai para a empresa, completado do bolso), confirmado_por, confirmado_em | 1 |
 | `sobras`, `faltas` | caixa, valor, origem descoberta, devolvido_em | 1 |
-| `clientes`, `cliente_locais` | telefone completo, nome; pino, link do Maps, endereço, área | 2 |
-| `cardapio_*` | faixas e preços por tamanho, sabores, bordas, adicionais, bebidas, combos | 2 |
-| `impressoes` | tipo, impressora, conteúdo, estado, tentativas (o MVP já imprime o recibo do acerto e a folha) | 1 |
-| `creditos`, `cobrancas_dobro` | cliente, valor, motivo, usado_em; pedido, escolha, resolvido | 2 |
-| `transacoes_maquininha` | maquininha, valor, hora, NSU, pagamento casado | integrações |
+| `clientes` | telefone completo, nome e o último local (pino, link do Maps, endereço, referência, área) | 2 |
+| `cardapio_*` | faixas e preços por tamanho, sabores, bordas, adicionais, bebidas, combos e "acabou hoje" | 2 |
+| `impressoes` | tipo (comanda, recibo do acerto, folha), impressora, conteúdo, estado, tentativas | 1 |
+| `creditos`, `cobrancas_dobro`, `transacoes_maquininha` | Fora por enquanto (PAG8, PAG9 e integrações) | — |
 | `operacoes`, `eventos` | fila aplicada (idempotência) e registro de quem fez o quê | 1 |
 | `erros` | erros do front, do agente e das funções, sem dados de cliente | 1 |
 
