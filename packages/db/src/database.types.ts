@@ -18,6 +18,7 @@ export type Database = {
           falta: number;
           id: string;
           maquininha: number;
+          motivo_reabertura: string | null;
           noite_id: string;
           pagar: number;
           reaberto_em: string | null;
@@ -42,6 +43,7 @@ export type Database = {
           falta: number;
           id?: string;
           maquininha: number;
+          motivo_reabertura?: string | null;
           noite_id: string;
           pagar: number;
           reaberto_em?: string | null;
@@ -65,6 +67,7 @@ export type Database = {
           falta?: number;
           id?: string;
           maquininha?: number;
+          motivo_reabertura?: string | null;
           noite_id?: string;
           pagar?: number;
           reaberto_em?: string | null;
@@ -142,6 +145,7 @@ export type Database = {
       caixas: {
         Row: {
           atualizado_em: string;
+          atualizado_por: string | null;
           caixa_inicial: number;
           criado_em: string;
           diaria: number;
@@ -152,10 +156,12 @@ export type Database = {
           noite_id: string;
           ordem_chegada: number;
           retorno_em: string | null;
+          versao: number;
         };
         ComputedFields: never;
         Insert: {
           atualizado_em?: string;
+          atualizado_por?: string | null;
           caixa_inicial: number;
           criado_em?: string;
           diaria: number;
@@ -166,9 +172,11 @@ export type Database = {
           noite_id: string;
           ordem_chegada: number;
           retorno_em?: string | null;
+          versao?: number;
         };
         Update: {
           atualizado_em?: string;
+          atualizado_por?: string | null;
           caixa_inicial?: number;
           criado_em?: string;
           diaria?: number;
@@ -179,8 +187,16 @@ export type Database = {
           noite_id?: string;
           ordem_chegada?: number;
           retorno_em?: string | null;
+          versao?: number;
         };
         Relationships: [
+          {
+            foreignKeyName: 'caixas_atualizado_por_fkey';
+            columns: ['atualizado_por'];
+            isOneToOne: false;
+            referencedRelation: 'perfis';
+            referencedColumns: ['id'];
+          },
           {
             foreignKeyName: 'caixas_motoboy_id_fkey';
             columns: ['motoboy_id'];
@@ -208,6 +224,7 @@ export type Database = {
           fuso: string;
           id: string;
           unica: boolean;
+          versao_minima_app: number;
         };
         ComputedFields: never;
         Insert: {
@@ -220,6 +237,7 @@ export type Database = {
           fuso?: string;
           id?: string;
           unica?: boolean;
+          versao_minima_app?: number;
         };
         Update: {
           ambiente?: Database['public']['Enums']['ambiente'];
@@ -231,6 +249,7 @@ export type Database = {
           fuso?: string;
           id?: string;
           unica?: boolean;
+          versao_minima_app?: number;
         };
         Relationships: [];
       };
@@ -314,32 +333,41 @@ export type Database = {
       faltas: {
         Row: {
           acerto_id: string;
+          anulada_em: string | null;
+          anulada_por: string | null;
           atualizado_em: string;
           caixa_id: string;
           criado_em: string;
           devolvido_em: string | null;
           id: string;
+          motivo_anulacao: string | null;
           origem: string | null;
           valor: number;
         };
         ComputedFields: never;
         Insert: {
           acerto_id: string;
+          anulada_em?: string | null;
+          anulada_por?: string | null;
           atualizado_em?: string;
           caixa_id: string;
           criado_em?: string;
           devolvido_em?: string | null;
           id?: string;
+          motivo_anulacao?: string | null;
           origem?: string | null;
           valor: number;
         };
         Update: {
           acerto_id?: string;
+          anulada_em?: string | null;
+          anulada_por?: string | null;
           atualizado_em?: string;
           caixa_id?: string;
           criado_em?: string;
           devolvido_em?: string | null;
           id?: string;
+          motivo_anulacao?: string | null;
           origem?: string | null;
           valor?: number;
         };
@@ -349,6 +377,13 @@ export type Database = {
             columns: ['acerto_id'];
             isOneToOne: false;
             referencedRelation: 'acertos';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'faltas_anulada_por_fkey';
+            columns: ['anulada_por'];
+            isOneToOne: false;
+            referencedRelation: 'perfis';
             referencedColumns: ['id'];
           },
           {
@@ -488,6 +523,7 @@ export type Database = {
           aparelho: string | null;
           atualizado_em: string;
           autor: string;
+          codigo: string | null;
           criada_em: string | null;
           criado_em: string;
           dados: NonNullable<Json>;
@@ -496,12 +532,14 @@ export type Database = {
           resultado: Json | null;
           status: string;
           tipo: string;
+          versao_op: number | null;
         };
         ComputedFields: never;
         Insert: {
           aparelho?: string | null;
           atualizado_em?: string;
           autor: string;
+          codigo?: string | null;
           criada_em?: string | null;
           criado_em?: string;
           dados: NonNullable<Json>;
@@ -510,11 +548,13 @@ export type Database = {
           resultado?: Json | null;
           status: string;
           tipo: string;
+          versao_op?: number | null;
         };
         Update: {
           aparelho?: string | null;
           atualizado_em?: string;
           autor?: string;
+          codigo?: string | null;
           criada_em?: string | null;
           criado_em?: string;
           dados?: NonNullable<Json>;
@@ -523,6 +563,7 @@ export type Database = {
           resultado?: Json | null;
           status?: string;
           tipo?: string;
+          versao_op?: number | null;
         };
         Relationships: [
           {
@@ -536,10 +577,13 @@ export type Database = {
       };
       pagamentos: {
         Row: {
+          anulado_em: string | null;
+          anulado_por: string | null;
           atualizado_em: string;
           criado_em: string;
           forma: Database['public']['Enums']['forma_pagamento'];
           id: string;
+          motivo_anulacao: string | null;
           noite_id: string;
           origem: Database['public']['Enums']['origem_pagamento'];
           pedido_id: string;
@@ -555,10 +599,13 @@ export type Database = {
         };
         ComputedFields: never;
         Insert: {
+          anulado_em?: string | null;
+          anulado_por?: string | null;
           atualizado_em?: string;
           criado_em?: string;
           forma: Database['public']['Enums']['forma_pagamento'];
           id?: string;
+          motivo_anulacao?: string | null;
           noite_id: string;
           origem?: Database['public']['Enums']['origem_pagamento'];
           pedido_id: string;
@@ -573,10 +620,13 @@ export type Database = {
           valor: number;
         };
         Update: {
+          anulado_em?: string | null;
+          anulado_por?: string | null;
           atualizado_em?: string;
           criado_em?: string;
           forma?: Database['public']['Enums']['forma_pagamento'];
           id?: string;
+          motivo_anulacao?: string | null;
           noite_id?: string;
           origem?: Database['public']['Enums']['origem_pagamento'];
           pedido_id?: string;
@@ -591,6 +641,13 @@ export type Database = {
           valor?: number;
         };
         Relationships: [
+          {
+            foreignKeyName: 'pagamentos_anulado_por_fkey';
+            columns: ['anulado_por'];
+            isOneToOne: false;
+            referencedRelation: 'perfis';
+            referencedColumns: ['id'];
+          },
           {
             foreignKeyName: 'pagamentos_noite_id_fkey';
             columns: ['noite_id'];
@@ -625,6 +682,7 @@ export type Database = {
         Row: {
           area_id: string | null;
           atualizado_em: string;
+          atualizado_por: string | null;
           codigo: string;
           criado_em: string;
           criado_por: string | null;
@@ -636,11 +694,13 @@ export type Database = {
           promocao: boolean;
           tipo: Database['public']['Enums']['tipo_pedido'];
           total: number;
+          versao: number;
         };
         ComputedFields: never;
         Insert: {
           area_id?: string | null;
           atualizado_em?: string;
+          atualizado_por?: string | null;
           codigo: string;
           criado_em?: string;
           criado_por?: string | null;
@@ -652,10 +712,12 @@ export type Database = {
           promocao?: boolean;
           tipo?: Database['public']['Enums']['tipo_pedido'];
           total: number;
+          versao?: number;
         };
         Update: {
           area_id?: string | null;
           atualizado_em?: string;
+          atualizado_por?: string | null;
           codigo?: string;
           criado_em?: string;
           criado_por?: string | null;
@@ -667,6 +729,7 @@ export type Database = {
           promocao?: boolean;
           tipo?: Database['public']['Enums']['tipo_pedido'];
           total?: number;
+          versao?: number;
         };
         Relationships: [
           {
@@ -674,6 +737,13 @@ export type Database = {
             columns: ['area_id'];
             isOneToOne: false;
             referencedRelation: 'areas';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'pedidos_atualizado_por_fkey';
+            columns: ['atualizado_por'];
+            isOneToOne: false;
+            referencedRelation: 'perfis';
             referencedColumns: ['id'];
           },
           {
@@ -725,10 +795,13 @@ export type Database = {
           area_id: string;
           atualizado_em: string;
           caixa_id: string;
+          cancelada_em: string | null;
+          cancelada_por: string | null;
           criado_em: string;
           entregue_em: string | null;
           estado: Database['public']['Enums']['estado_saida'];
           id: string;
+          motivo_cancelamento: string | null;
           motoboy_id: string;
           noite_id: string;
           papel_conferido: boolean;
@@ -742,10 +815,13 @@ export type Database = {
           area_id: string;
           atualizado_em?: string;
           caixa_id: string;
+          cancelada_em?: string | null;
+          cancelada_por?: string | null;
           criado_em?: string;
           entregue_em?: string | null;
           estado?: Database['public']['Enums']['estado_saida'];
           id?: string;
+          motivo_cancelamento?: string | null;
           motoboy_id: string;
           noite_id: string;
           papel_conferido?: boolean;
@@ -758,10 +834,13 @@ export type Database = {
           area_id?: string;
           atualizado_em?: string;
           caixa_id?: string;
+          cancelada_em?: string | null;
+          cancelada_por?: string | null;
           criado_em?: string;
           entregue_em?: string | null;
           estado?: Database['public']['Enums']['estado_saida'];
           id?: string;
+          motivo_cancelamento?: string | null;
           motoboy_id?: string;
           noite_id?: string;
           papel_conferido?: boolean;
@@ -783,6 +862,13 @@ export type Database = {
             columns: ['caixa_id'];
             isOneToOne: false;
             referencedRelation: 'caixas';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'saidas_cancelada_por_fkey';
+            columns: ['cancelada_por'];
+            isOneToOne: false;
+            referencedRelation: 'perfis';
             referencedColumns: ['id'];
           },
           {
@@ -811,10 +897,13 @@ export type Database = {
       sobras: {
         Row: {
           acerto_id: string;
+          anulada_em: string | null;
+          anulada_por: string | null;
           atualizado_em: string;
           caixa_id: string;
           criado_em: string;
           id: string;
+          motivo_anulacao: string | null;
           origem: string | null;
           resolvida_em: string | null;
           valor: number;
@@ -822,20 +911,26 @@ export type Database = {
         ComputedFields: never;
         Insert: {
           acerto_id: string;
+          anulada_em?: string | null;
+          anulada_por?: string | null;
           atualizado_em?: string;
           caixa_id: string;
           criado_em?: string;
           id?: string;
+          motivo_anulacao?: string | null;
           origem?: string | null;
           resolvida_em?: string | null;
           valor: number;
         };
         Update: {
           acerto_id?: string;
+          anulada_em?: string | null;
+          anulada_por?: string | null;
           atualizado_em?: string;
           caixa_id?: string;
           criado_em?: string;
           id?: string;
+          motivo_anulacao?: string | null;
           origem?: string | null;
           resolvida_em?: string | null;
           valor?: number;
@@ -846,6 +941,13 @@ export type Database = {
             columns: ['acerto_id'];
             isOneToOne: false;
             referencedRelation: 'acertos';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'sobras_anulada_por_fkey';
+            columns: ['anulada_por'];
+            isOneToOne: false;
+            referencedRelation: 'perfis';
             referencedColumns: ['id'];
           },
           {

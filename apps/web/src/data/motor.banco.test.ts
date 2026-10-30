@@ -33,7 +33,7 @@ async function cliente(email: string, fetchFalso?: typeof fetch) {
 
 async function op(c: Awaited<ReturnType<typeof cliente>>['c'], tipo: string, dados: object) {
   const { data, error } = await c.rpc('aplicar_operacao', {
-    op: { id: randomUUID(), tipo, dados, criada_em: new Date().toISOString() } as never,
+    op: { id: randomUUID(), tipo, dados, criada_em: new Date().toISOString(), versao_op: 1 } as never,
   });
   if (error) throw error;
   return data as { status: string; motivo: string | null };
@@ -143,6 +143,7 @@ describe('fila offline', () => {
       tipo: 'lancar_saida',
       dados: ultima?.dados as never,
       criada_em: new Date().toISOString(),
+      versao_op: 1,
       seq: 99,
       tentativas: 0,
     });
@@ -169,6 +170,7 @@ describe('fila offline', () => {
         await op(luan.c, 'confirmar_acerto', {
           caixa_id: caixaId,
           acerto_id: novoId(),
+          versao_esperada: (await luan.c.from('caixas').select('versao').eq('id', caixaId).single()).data?.versao,
           esperado: {
             devolver: conta.devolver,
             maquininha: conta.maquininha,

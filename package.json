@@ -7,16 +7,22 @@
     "node": ">=22"
   },
   "scripts": {
+    "dev": "supabase start -x studio,imgproxy,storage-api,logflare,vector,supavisor,mailpit,postgres-meta,edge-runtime && pnpm --filter @mel/web dev",
+    "check": "pnpm typecheck && pnpm lint && pnpm test",
     "typecheck": "pnpm -r --if-present typecheck",
     "lint": "biome check .",
     "format": "biome check --write .",
     "test": "pnpm -r --if-present test",
-    "build": "pnpm -r --if-present build"
+    "test:db": "pnpm -r --workspace-concurrency=1 --if-present test:db",
+    "build": "pnpm -r --if-present build",
+    "db:reset": "supabase db reset",
+    "db:types": "pnpm --filter @mel/db db:types"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",
     "@supabase/supabase-js": "2.118.0",
     "@types/node": "26.6.5",
+    "@vitest/coverage-v8": "5.0.5",
     "postgres": "3.4.9",
     "supabase": "2.121.0",
     "typescript": "7.0.2",

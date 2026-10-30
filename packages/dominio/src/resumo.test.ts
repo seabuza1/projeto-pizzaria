@@ -1,32 +1,35 @@
 import { describe, expect, it } from 'vitest';
 import { liquidar } from './acerto';
+import { centavos as c } from './dinheiro';
 import { agruparPorCidade, filtrarPeriodo, historicoCsv, resumirNoite, resumirPeriodo } from './resumo';
 
+const area = (entregues: number, voltaram: number, taxas: number) => ({ entregues, voltaram, taxas: c(taxas) });
+
 const contaA = {
-  dinheiro: 16000,
-  troco: 300,
-  cartao: 9000,
-  pixMaquina: 7200,
-  pixAntecipado: 6000,
-  diaria: 3000,
-  taxas: 5600,
+  dinheiro: c(16000),
+  troco: c(300),
+  cartao: c(9000),
+  pixMaquina: c(7200),
+  pixAntecipado: c(6000),
+  diaria: c(3000),
+  taxas: c(5600),
   entregues: 5,
   voltaram: 1,
-  porArea: { barra: { entregues: 2, voltaram: 1, taxas: 3600 }, ara: { entregues: 2, voltaram: 0, taxas: 1000 } },
-  liquidacao: liquidar({ caixaInicial: 8000, devolver: 24300, receber: 8600, dinheiroContado: 24000 }),
+  porArea: { barra: area(2, 1, 3600), ara: area(2, 0, 1000) },
+  liquidacao: liquidar({ caixaInicial: c(8000), devolver: c(24300), receber: c(8600), dinheiroContado: c(24000) }),
 };
 const contaB = {
-  dinheiro: 4000,
-  troco: 0,
-  cartao: 0,
-  pixMaquina: 0,
-  pixAntecipado: 0,
-  diaria: 3000,
-  taxas: 500,
+  dinheiro: c(4000),
+  troco: c(0),
+  cartao: c(0),
+  pixMaquina: c(0),
+  pixAntecipado: c(0),
+  diaria: c(3000),
+  taxas: c(500),
   entregues: 1,
   voltaram: 0,
-  porArea: { ara: { entregues: 1, voltaram: 0, taxas: 500 } },
-  liquidacao: liquidar({ caixaInicial: 8000, devolver: 12000, receber: 3500, dinheiroContado: 12500 }),
+  porArea: { ara: area(1, 0, 500) },
+  liquidacao: liquidar({ caixaInicial: c(8000), devolver: c(12000), receber: c(3500), dinheiroContado: c(12500) }),
 };
 
 describe('resumo da noite', () => {
@@ -42,10 +45,7 @@ describe('resumo da noite', () => {
       completado: 0,
       entregas: 7,
       voltaram: 1,
-      porArea: {
-        barra: { entregues: 2, voltaram: 1, taxas: 3600 },
-        ara: { entregues: 4, voltaram: 0, taxas: 2000 },
-      },
+      porArea: { barra: area(2, 1, 3600), ara: area(4, 0, 2000) },
       pendentes: 1,
     });
   });
@@ -66,23 +66,23 @@ describe('histórico do motoboy', () => {
   });
 
   it('resume noites, entregas, diárias, taxas e o total recebido', () => {
-    expect(resumirPeriodo(noites.slice(0, 2))).toEqual({
-      noites: 2,
-      entregas: 6,
-      porArea: {
-        ara: { entregues: 3, voltaram: 0, taxas: 1500 },
-        barra: { entregues: 2, voltaram: 1, taxas: 3600 },
-      },
-      diarias: 6000,
-      taxas: 6100,
+    expect(
+      resumirPeriodo([...noites.slice(0, 2), { data: '2026-10-17', conta: { ...contaB, liquidacao: null } }]),
+    ).toEqual({
+      noites: 3,
+      entregas: 7,
+      porArea: { ara: area(4, 0, 2000), barra: area(2, 1, 3600) },
+      diarias: 9000,
+      taxas: 6600,
       recebido: 3500 + 8300,
-      pendentes: 0,
+      pendentes: 1,
     });
   });
 
   it('exporta em CSV com ponto e vírgula', () => {
-    expect(historicoCsv(noites.slice(0, 2))).toBe(
-      'data;entregas;voltaram;diaria;taxas;recebido\n14/10/2026;1;0;30,00;5,00;35,00\n16/10/2026;5;1;30,00;56,00;83,00\n',
+    expect(historicoCsv([...noites.slice(0, 2), { data: '2026-10-17', conta: { ...contaB, liquidacao: null } }])).toBe(
+      'data;entregas;voltaram;diaria;taxas;recebido\n' +
+        '14/10/2026;1;0;30,00;5,00;35,00\n16/10/2026;5;1;30,00;56,00;83,00\n17/10/2026;1;0;30,00;5,00;\n',
     );
   });
 });
@@ -92,16 +92,9 @@ describe('entregas por cidade', () => {
     const cidade: Record<string, string> = { barra: 'Barra do Garças', parque: 'Barra do Garças', ara: 'Aragarças' };
     expect(
       agruparPorCidade(
-        {
-          barra: { entregues: 2, voltaram: 1, taxas: 3600 },
-          parque: { entregues: 1, voltaram: 0, taxas: 1500 },
-          ara: { entregues: 2, voltaram: 0, taxas: 1000 },
-        },
+        { barra: area(2, 1, 3600), parque: area(1, 0, 1500), ara: area(2, 0, 1000) },
         (a) => cidade[a] ?? a,
       ),
-    ).toEqual({
-      'Barra do Garças': { entregues: 3, voltaram: 1, taxas: 5100 },
-      Aragarças: { entregues: 2, voltaram: 0, taxas: 1000 },
-    });
+    ).toEqual({ 'Barra do Garças': area(3, 1, 5100), Aragarças: area(2, 0, 1000) });
   });
 });

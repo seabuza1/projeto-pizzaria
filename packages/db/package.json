@@ -9,7 +9,7 @@
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
-    "gen:tipos": "supabase gen types typescript --local --schema public > src/database.types.ts && biome format --write src/database.types.ts"
+    "db:types": "supabase gen types typescript --local --schema public > src/database.types.ts && biome format --write src/database.types.ts"
   },
   "dependencies": {
     "zod": "4.6.7",

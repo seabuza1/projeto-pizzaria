@@ -3,6 +3,8 @@
 import { z } from 'zod';
 
 const id = z.uuid();
+const versao = z.number().int().positive();
+const motivo = z.string().trim().min(1).max(300);
 const centavos = z.number().int().nonnegative().max(2_000_000_000);
 const positivo = z.number().int().positive().max(2_000_000_000);
 
@@ -38,15 +40,16 @@ const dadosPorTipo = {
     area_id: id,
     pagamentos: z.array(pagamentoLancado).min(1).max(6),
   }),
-  cancelar_saida: z.object({ saida_id: id }),
+  cancelar_saida: z.object({ saida_id: id, versao_esperada: versao, motivo: motivo.optional() }),
   mudar_estado_saida: z.object({ saida_id: id, estado: z.enum(['em_rota', 'entregue', 'voltou']) }),
-  trocar_pagamento: z.object({ saida_id: id, pagamentos: z.array(pagamentoLancado).max(6) }),
+  trocar_pagamento: z.object({ saida_id: id, versao_esperada: versao, pagamentos: z.array(pagamentoLancado).max(6) }),
   sair_de_novo: z.object({ saida_id: id, saida_anterior_id: id, caixa_id: id.optional(), area_id: id.optional() }),
   conferir_papel: z.object({ saida_id: id, conferido: z.boolean() }),
   informar_contado: z.object({ caixa_id: id, dinheiro_contado: centavos.nullable() }),
   confirmar_acerto: z.object({
     caixa_id: id,
     acerto_id: id,
+    versao_esperada: versao,
     esperado: z.object({
       devolver: z.number().int(),
       maquininha: z.number().int(),
@@ -59,7 +62,7 @@ const dadosPorTipo = {
     }),
     conta: z.record(z.string(), z.unknown()).optional(),
   }),
-  reabrir_acerto: z.object({ caixa_id: id }),
+  reabrir_acerto: z.object({ caixa_id: id, motivo }),
   marcar_pix: z.object({ pagamento_id: id, confirmado: z.boolean() }),
   pedir_impressao: z.object({
     impressao_id: id,
@@ -108,14 +111,18 @@ const dadosPorTipo = {
 } as const;
 
 export type TipoOperacao = keyof typeof dadosPorTipo;
+
+/** Versão do formato das operações. O servidor aceita esta e a anterior (interno.versao_op_atual). */
+export const VERSAO_OP = 1;
 export type DadosDe<T extends TipoOperacao> = z.infer<(typeof dadosPorTipo)[T]>;
 
 export interface Operacao<T extends TipoOperacao = TipoOperacao> {
   id: string;
   tipo: T;
   dados: DadosDe<T>;
-  /** ISO 8601, relógio do aparelho. */
+  /** ISO 8601, relógio do aparelho: só ordena a fila. A hora que vale é a do servidor. */
   criada_em: string;
+  versao_op: number;
   aparelho?: string;
 }
 
@@ -130,6 +137,8 @@ export interface RespostaOperacao {
   id: string;
   status: 'aplicada' | 'recusada';
   motivo: string | null;
+  /** Código da regra que recusou (PADROES, Erros). */
+  codigo: string | null;
   resultado: Record<string, unknown> | null;
   repetida?: boolean;
 }

@@ -23,6 +23,8 @@ export interface Recusa {
   id: string;
   tipo: string;
   motivo: string;
+  /** Código da regra (PADROES, Erros). */
+  codigo: string;
   em: string;
 }
 

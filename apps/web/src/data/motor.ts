@@ -1,6 +1,13 @@
 // Motor de dados: fila de operações, envio para aplicar_operacao, download da noite e tempo real.
 // Não depende do React; repo.ts expõe isto para as telas.
-import { type DadosDe, type Database, type RespostaOperacao, type TipoOperacao, validarDados } from '@mel/db';
+import {
+  type DadosDe,
+  type Database,
+  type RespostaOperacao,
+  type TipoOperacao,
+  VERSAO_OP,
+  validarDados,
+} from '@mel/db';
 import type { RealtimeChannel, SupabaseClient } from '@supabase/supabase-js';
 import { v7 as uuidv7 } from 'uuid';
 import { aplicarLocal } from './aplicar-local';
@@ -12,12 +19,24 @@ export interface OpcoesMotor {
   aparelho: string;
   /** Avisa a tela quando uma operação é recusada pelo servidor. */
   aoRecusar?: (motivo: string) => void;
+  /** A fila parou até a pessoa agir: atualizar o app ou confirmar o código do autenticador. */
+  aoBloquear?: (bloqueio: Bloqueio) => void;
   aoErro?: (erro: unknown, contexto: string) => void;
 }
 
 const TABELAS_DA_NOITE = ['caixas', 'pedidos', 'saidas', 'pagamentos', 'acertos', 'impressoes'] as const;
 const TABELAS_GERAIS = ['noites', 'areas', 'config', 'perfis'] as const;
 const MAX_TENTATIVAS = 5;
+
+export type Bloqueio = { tipo: 'atualizar' | 'mfa'; mensagem: string };
+
+// MEL02: app antigo demais; MEL03: falta o código do autenticador. A operação fica na fila.
+function bloqueioDe(erro: unknown): Bloqueio | null {
+  const e = erro as { code?: string; message?: string } | null;
+  if (e?.code === 'MEL02') return { tipo: 'atualizar', mensagem: e.message ?? 'Atualize o app.' };
+  if (e?.code === 'MEL03') return { tipo: 'mfa', mensagem: e.message ?? 'Confirme o código do app autenticador.' };
+  return null;
+}
 
 function ehFalhaDeRede(erro: unknown): boolean {
   if (typeof navigator !== 'undefined' && navigator.onLine === false) return true;
@@ -65,6 +84,7 @@ export class Motor {
       dados: validarDados(tipo, dados),
       criada_em: new Date().toISOString(),
       aparelho: this.o.aparelho,
+      versao_op: VERSAO_OP,
     };
     const { banco } = this.o;
     await this.comTrava(() =>
@@ -99,6 +119,11 @@ export class Motor {
         if (error) throw error;
         resposta = data as unknown as RespostaOperacao;
       } catch (erro) {
+        const bloqueio = bloqueioDe(erro);
+        if (bloqueio) {
+          this.o.aoBloquear?.(bloqueio);
+          break;
+        }
         if (ehFalhaDeRede(erro) || ehTransitorio(erro)) break;
         this.o.aoErro?.(erro, `enviar ${op.tipo}`);
         if (tentativas + 1 < MAX_TENTATIVAS) {
@@ -112,6 +137,7 @@ export class Motor {
           id: op.id,
           status: 'recusada',
           motivo: 'Não foi possível salvar. Fale com o admin.',
+          codigo: 'erro_inesperado',
           resultado: null,
         };
       }
@@ -119,7 +145,13 @@ export class Motor {
       if (resposta.status === 'recusada') {
         recusou = true;
         const motivo = resposta.motivo ?? 'Operação recusada.';
-        await banco.recusas.put({ id: op.id, tipo: op.tipo, motivo, em: new Date().toISOString() });
+        await banco.recusas.put({
+          id: op.id,
+          tipo: op.tipo,
+          motivo,
+          codigo: resposta.codigo ?? 'recusada',
+          em: new Date().toISOString(),
+        });
         this.o.aoRecusar?.(motivo);
       }
     }

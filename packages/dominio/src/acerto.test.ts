@@ -8,10 +8,11 @@ import {
   type PedidoAcerto,
   type SaidaAcerto,
 } from './acerto';
+import { type Centavos, centavos } from './dinheiro';
 import { type Forma, validarLancamento } from './pagamento';
 
 // Casos de teste de docs/fases/F1-acerto.md. Valores da spec em reais; o domínio usa centavos.
-const r = (reais: number) => Math.round(reais * 100);
+const r = (reais: number) => centavos(Math.round(reais * 100));
 
 // ENT1: taxa padrão por cidade, em centavos.
 const TAXAS = { Barra: r(12), Aragarças: r(5), Pontal: r(10) };
@@ -19,8 +20,8 @@ type Area = keyof typeof TAXAS;
 
 interface Linha {
   forma: Forma;
-  valor: number;
-  trocoPix?: number;
+  valor: Centavos;
+  trocoPix?: Centavos;
 }
 const din = (reais: number, trocoReais = 0): Linha => ({ forma: 'dinheiro', valor: r(reais), trocoPix: r(trocoReais) });
 const cartao = (reais: number): Linha => ({ forma: 'cartao', valor: r(reais) });
@@ -29,7 +30,7 @@ const pixAnt = (reais: number): Linha => ({ forma: 'pix_antecipado', valor: r(re
 
 // Monta o caixa de um motoboy como o app faria ao lançar: pedido, saída e pagamentos previstos.
 function novoCaixa() {
-  const areas: Record<Area, number> = { ...TAXAS };
+  const areas: Record<Area, Centavos> = { ...TAXAS };
   const pedidos: PedidoAcerto[] = [];
   const saidas: SaidaAcerto[] = [];
   const pagamentos: PagamentoAcerto[] = [];
@@ -38,8 +39,8 @@ function novoCaixa() {
   const agora = () => new Date(Date.UTC(2026, 9, 17, 1, 0, seq)).toISOString();
 
   function lancar(codigo: string, totalReais: number, area: Area, linhas: Linha[], estado: EstadoSaida = 'entregue') {
-    const erros = validarLancamento({ codigo, total: r(totalReais), pagamentos: linhas });
-    if (erros.length > 0) throw new Error(`Fixture inválida: ${erros.join(' ')}`);
+    const v = validarLancamento({ codigo, total: r(totalReais), pagamentos: linhas });
+    if (!v.ok) throw new Error(`Fixture inválida: ${v.erro.mensagem}`);
     const pedido: PedidoAcerto = { id: proximoId('pedido'), codigo };
     const saida: SaidaAcerto = {
       id: proximoId('saida'),
@@ -59,7 +60,7 @@ function novoCaixa() {
         saidaId: linha.forma === 'pix_antecipado' ? null : saida.id,
         forma: linha.forma,
         valor: linha.valor,
-        trocoPix: linha.trocoPix ?? 0,
+        trocoPix: linha.trocoPix ?? r(0),
         real: false,
         criadoEm: agora(),
       });
@@ -93,6 +94,10 @@ function novoCaixa() {
     const pedido = pedidos.find((p) => p.codigo === codigo);
     const saida = saidas.findLast((s) => s.pedidoId === pedido?.id);
     if (!pedido || !saida) throw new Error(`Fixture inválida: ${codigo} não existe`);
+    // OPE3: a troca anterior fica registrada como anulada.
+    for (const [i, p] of pagamentos.entries()) {
+      if (p.pedidoId === pedido.id && p.real) pagamentos[i] = { ...p, anulado: true };
+    }
     for (const linha of linhas) {
       pagamentos.push({
         id: proximoId('pagamento'),
@@ -100,11 +105,18 @@ function novoCaixa() {
         saidaId: linha.forma === 'pix_antecipado' ? null : saida.id,
         forma: linha.forma,
         valor: linha.valor,
-        trocoPix: linha.trocoPix ?? 0,
+        trocoPix: linha.trocoPix ?? r(0),
         real: true,
         criadoEm: agora(),
       });
     }
+  }
+
+  // "Desfazer" o lançamento: a saída fica cancelada e os pagamentos anulados, nada é apagado.
+  function desfazerLancamento(codigo: string) {
+    const pedido = pedidos.find((p) => p.codigo === codigo);
+    for (const [i, s] of saidas.entries()) if (s.pedidoId === pedido?.id) saidas[i] = { ...s, cancelada: true };
+    for (const [i, p] of pagamentos.entries()) if (p.pedidoId === pedido?.id) pagamentos[i] = { ...p, anulado: true };
   }
 
   function conferirPapeis(exceto: string[] = []) {
@@ -118,7 +130,7 @@ function novoCaixa() {
     return { caixaInicial: r(80), diaria: r(30), pedidos, saidas, pagamentos, ...extra };
   }
 
-  return { areas, lancar, sairDeNovo, trocarForma, conferirPapeis, entrada };
+  return { areas, lancar, sairDeNovo, trocarForma, desfazerLancamento, conferirPapeis, entrada };
 }
 
 function noiteBase() {
@@ -321,6 +333,22 @@ describe('acerto do motoboy: detalhes', () => {
       devolver: r(293),
       maquininha: r(112),
     });
+  });
+
+  it('OPE3 lançamento desfeito fica registrado, mas não conta', () => {
+    const caixa = noiteBase();
+    caixa.lancar('7777', 40, 'Aragarças', [din(40)]);
+    caixa.desfazerLancamento('7777');
+    const conta = calcularAcerto(caixa.entrada());
+    expect(conta).toMatchObject({ devolver: r(243), receber: r(86), entregues: 5 });
+    expect(conta.papelFaltando.map((p) => p.codigo)).not.toContain('7777');
+  });
+
+  it('OPE3 trocar a forma duas vezes: só a última troca vale', () => {
+    const caixa = noiteBase();
+    caixa.trocarForma('2672', [din(90)]);
+    caixa.trocarForma('2672', [pixMaq(90)]);
+    expect(calcularAcerto(caixa.entrada())).toMatchObject({ dinheiro: r(160), cartao: 0, pixMaquina: r(162) });
   });
 
   it('confere: sem falta, vaiParaEmpresa − retiradoCaixaEmpresa = devolver − receber + sobra', () => {

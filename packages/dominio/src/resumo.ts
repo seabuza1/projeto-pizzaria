@@ -1,6 +1,6 @@
 // Resumo da noite (painel do Luan) e histórico do motoboy.
 import type { ContaAcerto, TotalArea } from './acerto';
-import { formatarValor } from './dinheiro';
+import { type Centavos, formatarValor, somar, somarPor } from './dinheiro';
 import { formatarData } from './noite';
 
 type ContaResumida = Pick<
@@ -22,27 +22,27 @@ function somarAreas(contas: readonly Pick<ContaAcerto, 'porArea'>[]): Record<str
   const total: Record<string, TotalArea> = {};
   for (const c of contas) {
     for (const [area, t] of Object.entries(c.porArea)) {
-      const a = total[area] ?? { entregues: 0, voltaram: 0, taxas: 0 };
+      const a = total[area] ?? { entregues: 0, voltaram: 0, taxas: somar() };
       a.entregues += t.entregues;
       a.voltaram += t.voltaram;
-      a.taxas += t.taxas;
+      a.taxas = somar(a.taxas, t.taxas);
       total[area] = a;
     }
   }
   return total;
 }
 
-const somar = <T>(itens: readonly T[], f: (x: T) => number) => itens.reduce((s, x) => s + f(x), 0);
+const contar = <T>(itens: readonly T[], f: (x: T) => number) => itens.reduce((s, x) => s + f(x), 0);
 
 export interface ResumoNoite {
-  porForma: { dinheiro: number; troco: number; cartao: number; pixMaquina: number; pixAntecipado: number };
-  pagoMotoboys: number;
-  doCaixaDeles: number;
-  retiradoCaixaEmpresa: number;
-  vaiParaEmpresa: number;
-  faltas: number;
-  sobras: number;
-  completado: number;
+  porForma: { dinheiro: Centavos; troco: Centavos; cartao: Centavos; pixMaquina: Centavos; pixAntecipado: Centavos };
+  pagoMotoboys: Centavos;
+  doCaixaDeles: Centavos;
+  retiradoCaixaEmpresa: Centavos;
+  vaiParaEmpresa: Centavos;
+  faltas: Centavos;
+  sobras: Centavos;
+  completado: Centavos;
   entregas: number;
   voltaram: number;
   porArea: Record<string, TotalArea>;
@@ -54,21 +54,21 @@ export function resumirNoite(contas: readonly ContaResumida[]): ResumoNoite {
   const liq = contas.flatMap((c) => (c.liquidacao ? [c.liquidacao] : []));
   return {
     porForma: {
-      dinheiro: somar(contas, (c) => c.dinheiro),
-      troco: somar(contas, (c) => c.troco),
-      cartao: somar(contas, (c) => c.cartao),
-      pixMaquina: somar(contas, (c) => c.pixMaquina),
-      pixAntecipado: somar(contas, (c) => c.pixAntecipado),
+      dinheiro: somarPor(contas, (c) => c.dinheiro),
+      troco: somarPor(contas, (c) => c.troco),
+      cartao: somarPor(contas, (c) => c.cartao),
+      pixMaquina: somarPor(contas, (c) => c.pixMaquina),
+      pixAntecipado: somarPor(contas, (c) => c.pixAntecipado),
     },
-    pagoMotoboys: somar(liq, (l) => l.pagar),
-    doCaixaDeles: somar(liq, (l) => l.doCaixaDele),
-    retiradoCaixaEmpresa: somar(liq, (l) => l.retiradoCaixaEmpresa),
-    vaiParaEmpresa: somar(liq, (l) => l.vaiParaEmpresa),
-    faltas: somar(liq, (l) => l.falta),
-    sobras: somar(liq, (l) => l.sobra),
-    completado: somar(liq, (l) => l.completa),
-    entregas: somar(contas, (c) => c.entregues),
-    voltaram: somar(contas, (c) => c.voltaram),
+    pagoMotoboys: somarPor(liq, (l) => l.pagar),
+    doCaixaDeles: somarPor(liq, (l) => l.doCaixaDele),
+    retiradoCaixaEmpresa: somarPor(liq, (l) => l.retiradoCaixaEmpresa),
+    vaiParaEmpresa: somarPor(liq, (l) => l.vaiParaEmpresa),
+    faltas: somarPor(liq, (l) => l.falta),
+    sobras: somarPor(liq, (l) => l.sobra),
+    completado: somarPor(liq, (l) => l.completa),
+    entregas: contar(contas, (c) => c.entregues),
+    voltaram: contar(contas, (c) => c.voltaram),
     porArea: somarAreas(contas),
     pendentes: contas.length - liq.length,
   };
@@ -94,12 +94,12 @@ export function filtrarPeriodo<T extends { data: string }>(noites: readonly T[],
 export function resumirPeriodo(noites: readonly NoiteDoHistorico[]) {
   return {
     noites: noites.length,
-    entregas: somar(noites, (n) => n.conta.entregues),
+    entregas: contar(noites, (n) => n.conta.entregues),
     porArea: somarAreas(noites.map((n) => n.conta)),
-    diarias: somar(noites, (n) => n.conta.diaria),
-    taxas: somar(noites, (n) => n.conta.taxas),
+    diarias: somarPor(noites, (n) => n.conta.diaria),
+    taxas: somarPor(noites, (n) => n.conta.taxas),
     // O que ele levou de fato: o que recebe menos a falta.
-    recebido: somar(noites, (n) => n.conta.liquidacao?.pagar ?? 0),
+    recebido: somarPor(noites, (n) => n.conta.liquidacao?.pagar ?? somar()),
     pendentes: noites.filter((n) => !n.conta.liquidacao).length,
   };
 }

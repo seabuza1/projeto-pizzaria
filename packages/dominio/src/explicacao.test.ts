@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
+import type { Centavos } from './dinheiro';
 import { explicarConta, textoDaLiquidacao, textoDasPartes } from './explicacao';
 
-const conta = {
+// Os valores dos casos já são centavos inteiros.
+const cs = <T extends Record<string, number>>(o: T) => o as unknown as { [K in keyof T]: Centavos };
+
+const conta = cs({
   caixaInicial: 8000,
   diaria: 3000,
   dinheiro: 16000,
@@ -13,7 +17,7 @@ const conta = {
   devolver: 24300,
   maquininha: 16200,
   receber: 8600,
-};
+});
 
 describe('de onde vem cada número (ACE10)', () => {
   it('monta as partes do devolver, do receber e da maquininha', () => {
@@ -25,7 +29,7 @@ describe('de onde vem cada número (ACE10)', () => {
   });
 
   it('esconde as partes zeradas, menos o caixa e a diária', () => {
-    const e = explicarConta({ ...conta, dinheiro: 0, troco: 0, taxas: 0, cartao: 4750, pixMaquina: 0 });
+    const e = explicarConta({ ...conta, ...cs({ dinheiro: 0, troco: 0, taxas: 0, cartao: 4750, pixMaquina: 0 }) });
     expect(textoDasPartes(e.devolver)).toBe('80 de caixa');
     expect(textoDasPartes(e.receber)).toBe('30 de diária');
     expect(textoDasPartes(e.maquininha)).toBe('47,50 em cartão');
@@ -33,17 +37,23 @@ describe('de onde vem cada número (ACE10)', () => {
 });
 
 describe('liquidação em uma frase (painel do Luan)', () => {
-  const base = { dinheiroContado: 7500, dif: 0, falta: 0, sobra: 0, completa: 0 };
+  const base = cs({ dinheiroContado: 7500, dif: 0, falta: 0, sobra: 0, completa: 0 });
 
   it('do caixa dele e do caixa da empresa (T10)', () => {
     expect(
-      textoDaLiquidacao({ ...base, pagar: 17000, doCaixaDele: 7500, retiradoCaixaEmpresa: 9500, vaiParaEmpresa: 0 }),
+      textoDaLiquidacao({
+        ...base,
+        ...cs({ pagar: 17000, doCaixaDele: 7500, retiradoCaixaEmpresa: 9500, vaiParaEmpresa: 0 }),
+      }),
     ).toBe('Pague R$ 75,00 do caixa dele e retire R$ 95,00 do caixa da empresa.');
   });
 
   it('só do caixa dele (T15)', () => {
     expect(
-      textoDaLiquidacao({ ...base, pagar: 3500, doCaixaDele: 3500, retiradoCaixaEmpresa: 0, vaiParaEmpresa: 8500 }),
+      textoDaLiquidacao({
+        ...base,
+        ...cs({ pagar: 3500, doCaixaDele: 3500, retiradoCaixaEmpresa: 0, vaiParaEmpresa: 8500 }),
+      }),
     ).toBe('Pague R$ 35,00 do caixa dele.');
   });
 
@@ -51,12 +61,14 @@ describe('liquidação em uma frase (painel do Luan)', () => {
     expect(
       textoDaLiquidacao({
         ...base,
-        falta: 10300,
-        pagar: 0,
-        completa: 1700,
-        doCaixaDele: 0,
-        retiradoCaixaEmpresa: 0,
-        vaiParaEmpresa: 15700,
+        ...cs({
+          falta: 10300,
+          pagar: 0,
+          completa: 1700,
+          doCaixaDele: 0,
+          retiradoCaixaEmpresa: 0,
+          vaiParaEmpresa: 15700,
+        }),
       }),
     ).toBe('Nada a pagar. Ele completa R$ 17,00 do bolso.');
   });
@@ -65,11 +77,7 @@ describe('liquidação em uma frase (painel do Luan)', () => {
     expect(
       textoDaLiquidacao({
         ...base,
-        dinheiroContado: 0,
-        pagar: 3000,
-        doCaixaDele: 0,
-        retiradoCaixaEmpresa: 3000,
-        vaiParaEmpresa: 0,
+        ...cs({ dinheiroContado: 0, pagar: 3000, doCaixaDele: 0, retiradoCaixaEmpresa: 3000, vaiParaEmpresa: 0 }),
       }),
     ).toBe('Retire R$ 30,00 do caixa da empresa para pagar.');
   });

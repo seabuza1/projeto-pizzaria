@@ -1,34 +1,42 @@
 import { describe, expect, it } from 'vitest';
+import { centavos } from './dinheiro';
 import { completarResto, lerValor } from './entrada';
+
+const c = centavos;
 
 describe('valor digitado', () => {
   it('"113" vale R$ 113,00', () => {
-    expect(lerValor('113')).toBe(11300);
-    expect(lerValor(' 80 ')).toBe(8000);
+    expect(lerValor('113')).toEqual({ ok: true, valor: 11300 });
+    expect(lerValor(' 80 ')).toEqual({ ok: true, valor: 8000 });
   });
 
   it('aceita centavos com vírgula e milhar com ponto', () => {
-    expect(lerValor('47,50')).toBe(4750);
-    expect(lerValor('47,5')).toBe(4750);
-    expect(lerValor('1.234,56')).toBe(123456);
-    expect(lerValor('0,05')).toBe(5);
+    expect(lerValor('47,50')).toEqual({ ok: true, valor: 4750 });
+    expect(lerValor('47,5')).toEqual({ ok: true, valor: 4750 });
+    expect(lerValor('1.234,56')).toEqual({ ok: true, valor: 123456 });
+    expect(lerValor('0,05')).toEqual({ ok: true, valor: 5 });
   });
 
   it('recusa o que não é valor', () => {
-    for (const t of ['', 'abc', '1,234', '12,3,4', '-5', '1.23']) expect(lerValor(t), t).toBeNull();
+    for (const t of ['', 'abc', '1,234', '12,3,4', '-5', '1.23']) {
+      expect(lerValor(t), t).toEqual({
+        ok: false,
+        erro: { codigo: 'valor_invalido', mensagem: 'Digite o valor, por exemplo 113 ou 47,50.' },
+      });
+    }
   });
 });
 
 describe('pagamento dividido: a linha vazia fica com o resto', () => {
   it('preenche a única linha vazia', () => {
     expect(
-      completarResto(5000, [
-        { forma: 'pix_antecipado', valor: 2000 },
+      completarResto(c(5000), [
+        { forma: 'pix_antecipado', valor: c(2000) },
         { forma: 'dinheiro', valor: null },
       ]),
     ).toEqual({
       ok: true,
-      linhas: [
+      valor: [
         { forma: 'pix_antecipado', valor: 2000 },
         { forma: 'dinheiro', valor: 3000 },
       ],
@@ -36,21 +44,21 @@ describe('pagamento dividido: a linha vazia fica com o resto', () => {
   });
 
   it('sem linha vazia, só confere', () => {
-    expect(completarResto(5000, [{ forma: 'cartao', valor: 5000 }])).toMatchObject({ ok: true });
+    expect(completarResto(c(5000), [{ forma: 'cartao', valor: c(5000) }])).toMatchObject({ ok: true });
   });
 
   it('mais de uma linha vazia ou resto não positivo é erro', () => {
     expect(
-      completarResto(5000, [
+      completarResto(c(5000), [
         { forma: 'cartao', valor: null },
         { forma: 'dinheiro', valor: null },
       ]),
-    ).toEqual({ ok: false, erro: 'Deixe só uma linha sem valor.' });
+    ).toEqual({ ok: false, erro: { codigo: 'linhas_vazias', mensagem: 'Deixe só uma linha sem valor.' } });
     expect(
-      completarResto(5000, [
-        { forma: 'cartao', valor: 5000 },
+      completarResto(c(5000), [
+        { forma: 'cartao', valor: c(5000) },
         { forma: 'dinheiro', valor: null },
       ]),
-    ).toEqual({ ok: false, erro: 'Não sobra nada para a linha vazia.' });
+    ).toEqual({ ok: false, erro: { codigo: 'sem_resto', mensagem: 'Não sobra nada para a linha vazia.' } });
   });
 });

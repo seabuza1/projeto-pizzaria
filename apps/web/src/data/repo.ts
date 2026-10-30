@@ -1,18 +1,26 @@
 // Única porta de dados das telas (CLAUDE.md, Dados). Esconde o IndexedDB, a fila e o Supabase.
 // As telas leem com os hooks daqui e escrevem com `acoes`; as contas vêm de @mel/dominio.
-import { type DadosDe, entradaDoCaixa, type PagamentoLancadoDb, type TipoOperacao } from '@mel/db';
+import {
+  type DadosDe,
+  entradaDoCaixa,
+  type PagamentoLancadoDb,
+  pagamentoParaDominio,
+  saidaParaDominio,
+  type TipoOperacao,
+} from '@mel/db';
 import {
   type ContaAcerto,
   calcularAcerto,
+  centavos,
   type Forma,
   type NoiteDoHistorico,
-  type PagamentoAcerto,
   pagamentosDaSaida,
+  ZERO,
 } from '@mel/dominio';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useSyncExternalStore } from 'react';
 import { v7 as uuidv7 } from 'uuid';
-import { mostrarAviso } from './avisos';
+import { mostrarAviso } from '../compartilhado/avisos';
 import {
   type Acerto,
   BancoLocal,
@@ -22,7 +30,7 @@ import {
   type Perfil,
   type Saida,
 } from './banco-local';
-import { Motor } from './motor';
+import { type Bloqueio, Motor } from './motor';
 import { supabase } from './supabase';
 
 export type { Acerto, Area, Caixa, Config, Impressao, Noite, Pagamento, Pedido, Perfil, Saida } from './banco-local';
@@ -42,6 +50,8 @@ function idDoAparelho(): string {
 }
 
 export const VERSAO = import.meta.env.VITE_VERSAO ?? 'dev';
+/** Sobe quando o app deixa de funcionar com o servidor antigo; comparada com config.versao_minima_app. */
+export const VERSAO_APP = 1;
 
 /** Registro de erros sem dados de cliente (tabela erros). Offline, guarda e manda depois. */
 export async function registrarErro(erro: unknown, contexto: string) {
@@ -74,6 +84,7 @@ const motor = new Motor({
   banco,
   aparelho: idDoAparelho(),
   aoRecusar: (motivo) => mostrarAviso(motivo, { tipo: 'erro' }),
+  aoBloquear: (b) => mudarBloqueio(b),
   aoErro: (erro, contexto) => void registrarErro(erro, contexto),
 });
 
@@ -82,6 +93,9 @@ const motor = new Motor({
 export type Sessao =
   | { estado: 'carregando' }
   | { estado: 'fora'; erro?: string }
+  // MFA obrigatório para admin e gerente (ARQUITETURA, Segurança).
+  | { estado: 'mfa'; fatorId: string; erro?: string }
+  | { estado: 'cadastrar_mfa'; fatorId: string; qrCode: string; segredo: string; erro?: string }
   | { estado: 'dentro'; perfil: Perfil };
 
 let sessao: Sessao = { estado: 'carregando' };
@@ -112,6 +126,45 @@ async function carregarPerfil(usuarioId: string): Promise<Perfil | null> {
   return guardado?.id === usuarioId ? guardado : null;
 }
 
+const precisaMfa = (perfil: Perfil) => perfil.papeis.some((p) => p === 'admin' || p === 'gerente');
+
+/** Admin e gerente: confirma o código do autenticador ou cadastra o primeiro. Devolve true se já está em aal2. */
+async function conferirMfa(): Promise<boolean> {
+  const nivel = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+  if (nivel.data?.currentLevel === 'aal2') return true;
+  const fatores = await supabase.auth.mfa.listFactors();
+  const verificado = fatores.data?.totp.find((f) => f.status === 'verified');
+  if (verificado) {
+    mudarSessao({ estado: 'mfa', fatorId: verificado.id });
+    return false;
+  }
+  const novo = await supabase.auth.mfa.enroll({ factorType: 'totp', friendlyName: 'Mel PDV' });
+  if (novo.error || !novo.data) {
+    mudarSessao({ estado: 'fora', erro: 'Sem conexão para cadastrar o autenticador. Tente de novo.' });
+    return false;
+  }
+  mudarSessao({
+    estado: 'cadastrar_mfa',
+    fatorId: novo.data.id,
+    qrCode: novo.data.totp.qr_code,
+    segredo: novo.data.totp.secret,
+  });
+  return false;
+}
+
+/** Código de 6 dígitos do app autenticador. */
+export async function confirmarCodigo(codigo: string): Promise<string | null> {
+  const atual = sessao;
+  if (atual.estado !== 'mfa' && atual.estado !== 'cadastrar_mfa') return null;
+  const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId: atual.fatorId, code: codigo.trim() });
+  if (error)
+    return /invalid|expired/i.test(error.message) ? 'Código errado ou vencido.' : 'Sem conexão. Tente de novo.';
+  const { data } = await supabase.auth.getUser();
+  mudarBloqueio(null);
+  if (data.user) await comecar(data.user.id);
+  return null;
+}
+
 async function comecar(usuarioId: string) {
   const perfil = await carregarPerfil(usuarioId);
   if (!perfil?.ativo) {
@@ -119,6 +172,7 @@ async function comecar(usuarioId: string) {
     mudarSessao({ estado: 'fora', erro: 'Conta sem acesso. Fale com o admin.' });
     return;
   }
+  if (precisaMfa(perfil) && !(await conferirMfa())) return;
   mudarSessao({ estado: 'dentro', perfil });
   await motor.iniciar(usuarioId);
   void enviarErrosGuardados();
@@ -152,6 +206,31 @@ export async function sair(forcar = false): Promise<'ok' | 'pendente'> {
 }
 
 export const sincronizar = () => motor.enviar().then(() => motor.baixar());
+
+// Fila parada até a pessoa agir (app antigo ou MFA) ----------------------------
+
+let bloqueio: Bloqueio | null = null;
+const ouvintesBloqueio = new Set<() => void>();
+function mudarBloqueio(novo: Bloqueio | null) {
+  bloqueio = novo;
+  for (const o of ouvintesBloqueio) o();
+}
+
+export function useBloqueio(): Bloqueio | null {
+  return useSyncExternalStore(
+    (f) => {
+      ouvintesBloqueio.add(f);
+      return () => ouvintesBloqueio.delete(f);
+    },
+    () => bloqueio,
+  );
+}
+
+/** Robustez: abaixo da versão mínima, o app envia a fila e pede para atualizar. */
+export function useAppDesatualizado(): boolean {
+  const cfg = useConfig();
+  return (cfg?.versao_minima_app ?? 1) > VERSAO_APP;
+}
 
 // Leitura ----------------------------------------------------------------------
 
@@ -225,28 +304,7 @@ export function contaDoCaixa(caixa: Caixa, dados: DadosNoite): ContaAcerto {
 export function pagamentosVigentes(saida: Saida, pagamentos: readonly Pagamento[]): Pagamento[] {
   const doPedido = pagamentos.filter((p) => p.pedido_id === saida.pedido_id);
   const vigentes = new Set(
-    pagamentosDaSaida(
-      {
-        id: saida.id,
-        pedidoId: saida.pedido_id,
-        area: saida.area_id,
-        taxa: saida.taxa,
-        estado: saida.estado,
-        papelConferido: saida.papel_conferido,
-      },
-      doPedido.map(
-        (p): PagamentoAcerto => ({
-          id: p.id,
-          pedidoId: p.pedido_id,
-          saidaId: p.saida_id,
-          forma: p.forma,
-          valor: p.valor,
-          trocoPix: p.troco_pix,
-          real: p.real,
-          criadoEm: p.registrado_em,
-        }),
-      ),
-    ).map((p) => p.id),
+    pagamentosDaSaida(saidaParaDominio(saida), doPedido.map(pagamentoParaDominio)).map((p) => p.id),
   );
   return doPedido.filter((p) => vigentes.has(p.id));
 }
@@ -254,6 +312,12 @@ export function pagamentosVigentes(saida: Saida, pagamentos: readonly Pagamento[
 // Escrita ----------------------------------------------------------------------
 
 const novoId = () => uuidv7();
+
+/** A versão do pedido que a tela mostrou (Conflitos e concorrência). */
+async function versaoDoPedidoDa(saidaId: string): Promise<number> {
+  const saida = await banco.saidas.get(saidaId);
+  return (saida && (await banco.pedidos.get(saida.pedido_id))?.versao) ?? 0;
+}
 const executar = <T extends TipoOperacao>(tipo: T, dados: DadosDe<T>) => motor.executar(tipo, dados);
 
 export interface LinhaPagamento {
@@ -284,11 +348,22 @@ export const acoes = {
     });
     return saidaId;
   },
-  cancelarSaida: (saidaId: string) => executar('cancelar_saida', { saida_id: saidaId }),
+  async cancelarSaida(saidaId: string, motivo?: string) {
+    return executar('cancelar_saida', {
+      saida_id: saidaId,
+      versao_esperada: await versaoDoPedidoDa(saidaId),
+      ...(motivo ? { motivo } : {}),
+    });
+  },
   mudarEstado: (saidaId: string, estado: 'em_rota' | 'entregue' | 'voltou') =>
     executar('mudar_estado_saida', { saida_id: saidaId, estado }),
-  trocarPagamento: (saidaId: string, linhas: LinhaPagamento[]) =>
-    executar('trocar_pagamento', { saida_id: saidaId, pagamentos: paraLinhasDb(linhas) }),
+  async trocarPagamento(saidaId: string, linhas: LinhaPagamento[]) {
+    return executar('trocar_pagamento', {
+      saida_id: saidaId,
+      versao_esperada: await versaoDoPedidoDa(saidaId),
+      pagamentos: paraLinhasDb(linhas),
+    });
+  },
   async sairDeNovo(saidaAnteriorId: string, opcoes: { caixaId?: string; areaId?: string } = {}) {
     const saidaId = novoId();
     await executar('sair_de_novo', {
@@ -320,6 +395,8 @@ export const acoes = {
     await executar('confirmar_acerto', {
       caixa_id: caixaId,
       acerto_id: acertoId,
+      // Conflitos e concorrência: se alguém mexeu no caixa depois, o servidor recusa.
+      versao_esperada: (await banco.caixas.get(caixaId))?.versao ?? 0,
       esperado: {
         devolver: conta.devolver,
         maquininha: conta.maquininha,
@@ -334,7 +411,7 @@ export const acoes = {
     });
     return acertoId;
   },
-  reabrirAcerto: (caixaId: string) => executar('reabrir_acerto', { caixa_id: caixaId }),
+  reabrirAcerto: (caixaId: string, motivo: string) => executar('reabrir_acerto', { caixa_id: caixaId, motivo }),
   marcarPix: (pagamentoId: string, confirmado: boolean) =>
     executar('marcar_pix', { pagamento_id: pagamentoId, confirmado }),
   fecharNoite: (noiteId: string) => executar('fechar_noite', { noite_id: noiteId }),
@@ -410,7 +487,14 @@ export async function carregarHistorico(motoboyId: string): Promise<NoiteHistori
         data,
         confirmadoPor: acerto?.confirmado_por ?? null,
         confirmadoEm: acerto?.confirmado_em ?? null,
-        conta: conta ?? { diaria: c.diaria, taxas: 0, entregues: 0, voltaram: 0, porArea: {}, liquidacao: null },
+        conta: conta ?? {
+          diaria: centavos(c.diaria),
+          taxas: ZERO,
+          entregues: 0,
+          voltaram: 0,
+          porArea: {},
+          liquidacao: null,
+        },
       },
     ];
   });

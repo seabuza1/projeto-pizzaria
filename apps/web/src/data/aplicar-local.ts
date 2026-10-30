@@ -1,4 +1,5 @@
 // Efeito local de cada operação, aplicado na hora no IndexedDB (a tela não espera a rede).
+// Espelha as op_* de supabase/migrations, inclusive as versões e as anulações (OPE3).
 // O servidor é a verdade: depois de cada sincronização, as operações ainda na fila são reaplicadas por cima.
 import type { DadosDe, Operacao, PagamentoLancadoDb, TipoOperacao } from '@mel/db';
 import { dataDaNoite, FUSO_PADRAO } from '@mel/dominio';
@@ -15,14 +16,37 @@ type Aplicador<T extends TipoOperacao> = (
   ctx: Contexto,
 ) => Promise<void>;
 
-async function saidaMaisRecente(db: BancoLocal, pedidoId: string): Promise<Saida | undefined> {
-  const saidas = await db.saidas.where('pedido_id').equals(pedidoId).toArray();
-  return saidas.sort((a, b) => a.criado_em.localeCompare(b.criado_em) || a.id.localeCompare(b.id)).at(-1);
+const ativas = (saidas: Saida[]) =>
+  saidas
+    .filter((s) => !s.cancelada_em)
+    .sort((a, b) => a.criado_em.localeCompare(b.criado_em) || a.id.localeCompare(b.id));
+
+export async function saidaMaisRecente(db: BancoLocal, pedidoId: string): Promise<Saida | undefined> {
+  return ativas(await db.saidas.where('pedido_id').equals(pedidoId).toArray()).at(-1);
 }
 
 async function atualizarEstadoPedido(db: BancoLocal, pedidoId: string) {
-  const saidas = await db.saidas.where('pedido_id').equals(pedidoId).toArray();
-  await db.pedidos.update(pedidoId, { estado: saidas.some((s) => s.estado === 'entregue') ? 'entregue' : 'aberto' });
+  const saidas = ativas(await db.saidas.where('pedido_id').equals(pedidoId).toArray());
+  const estado =
+    saidas.length === 0 ? 'cancelado' : saidas.some((s) => s.estado === 'entregue') ? 'entregue' : 'aberto';
+  await db.pedidos.update(pedidoId, { estado });
+}
+
+// Conflitos e concorrência: as mesmas operações que sobem a versão no servidor sobem aqui.
+async function tocarPedido(db: BancoLocal, pedidoId: string, ctx: Contexto) {
+  const p = await db.pedidos.get(pedidoId);
+  if (p) await db.pedidos.update(pedidoId, { versao: p.versao + 1, atualizado_por: ctx.usuarioId });
+}
+
+async function tocarCaixa(db: BancoLocal, caixaId: string, ctx: Contexto) {
+  const c = await db.caixas.get(caixaId);
+  if (c) await db.caixas.update(caixaId, { versao: c.versao + 1, atualizado_por: ctx.usuarioId });
+}
+
+async function anular(db: BancoLocal, ids: string[], motivo: string, op: Operacao, ctx: Contexto) {
+  for (const id of ids) {
+    await db.pagamentos.update(id, { anulado_em: op.criada_em, anulado_por: ctx.usuarioId, motivo_anulacao: motivo });
+  }
 }
 
 function novosPagamentos(
@@ -34,8 +58,7 @@ function novosPagamentos(
   confirmados: readonly Pagamento[] = [],
 ): Pagamento[] {
   return linhas.map((l) => {
-    const conf =
-      l.forma === 'pix_antecipado' ? confirmados.find((c) => c.valor === l.valor && c.pix_confirmado) : undefined;
+    const conf = l.forma === 'pix_antecipado' ? confirmados.find((c) => c.valor === l.valor) : undefined;
     return {
       id: l.id,
       noite_id: pedido.noite_id,
@@ -51,6 +74,9 @@ function novosPagamentos(
       origem: 'manual',
       referencia_externa: null,
       registrado_em: hora,
+      anulado_em: null,
+      anulado_por: null,
+      motivo_anulacao: null,
       criado_em: hora,
       atualizado_em: hora,
     };
@@ -79,7 +105,7 @@ const aplicadores: { [T in TipoOperacao]: Aplicador<T> } = {
   async reabrir_noite(db, d) {
     await db.noites.update(d.noite_id, { fechada_em: null, fechada_por: null });
   },
-  async abrir_caixa(db, d, op) {
+  async abrir_caixa(db, d, op, ctx) {
     if (await db.caixas.get(d.caixa_id)) return;
     const cfg = await db.config.toCollection().first();
     const ordens = (await db.caixas.where('noite_id').equals(d.noite_id).toArray()).map((c) => c.ordem_chegada);
@@ -93,15 +119,18 @@ const aplicadores: { [T in TipoOperacao]: Aplicador<T> } = {
       dinheiro_contado: null,
       retorno_em: null,
       fechado_em: null,
+      versao: 1,
+      atualizado_por: ctx.usuarioId,
       criado_em: op.criada_em,
       atualizado_em: op.criada_em,
     });
   },
-  async editar_caixa(db, d) {
-    const mudancas: { caixa_inicial?: number; diaria?: number } = {};
-    if (d.caixa_inicial !== undefined) mudancas.caixa_inicial = d.caixa_inicial;
-    if (d.diaria !== undefined) mudancas.diaria = d.diaria;
-    await db.caixas.update(d.caixa_id, mudancas);
+  async editar_caixa(db, d, _op, ctx) {
+    await db.caixas.update(d.caixa_id, {
+      ...(d.caixa_inicial !== undefined ? { caixa_inicial: d.caixa_inicial } : {}),
+      ...(d.diaria !== undefined ? { diaria: d.diaria } : {}),
+    });
+    await tocarCaixa(db, d.caixa_id, ctx);
   },
   async avisar_retorno(db, d, op) {
     const retorno = d.minutos === null ? null : new Date(Date.parse(op.criada_em) + d.minutos * 60_000).toISOString();
@@ -123,6 +152,8 @@ const aplicadores: { [T in TipoOperacao]: Aplicador<T> } = {
       estado: 'aberto',
       obs: null,
       criado_por: ctx.usuarioId,
+      versao: 1,
+      atualizado_por: ctx.usuarioId,
       criado_em: op.criada_em,
       atualizado_em: op.criada_em,
     };
@@ -140,29 +171,46 @@ const aplicadores: { [T in TipoOperacao]: Aplicador<T> } = {
       entregue_em: null,
       voltou_em: null,
       papel_conferido: false,
+      cancelada_em: null,
+      cancelada_por: null,
+      motivo_cancelamento: null,
       criado_em: op.criada_em,
       atualizado_em: op.criada_em,
     });
     await db.pagamentos.bulkPut(novosPagamentos(pedido, d.saida_id, d.pagamentos, false, op.criada_em));
+    await tocarCaixa(db, caixa.id, ctx);
   },
-  async cancelar_saida(db, d) {
+  async cancelar_saida(db, d, op, ctx) {
     const saida = await db.saidas.get(d.saida_id);
-    if (!saida) return;
-    const outras = (await db.saidas.where('pedido_id').equals(saida.pedido_id).toArray())
+    if (!saida || saida.cancelada_em) return;
+    const motivo = d.motivo ?? 'Desfeito no app';
+    const anterior = ativas(await db.saidas.where('pedido_id').equals(saida.pedido_id).toArray())
       .filter((s) => s.id !== saida.id)
-      .sort((a, b) => a.criado_em.localeCompare(b.criado_em));
-    const anterior = outras.at(-1);
+      .at(-1);
+    await db.saidas.update(saida.id, {
+      cancelada_em: op.criada_em,
+      cancelada_por: ctx.usuarioId,
+      motivo_cancelamento: motivo,
+    });
+    const doPedido = await db.pagamentos.where('pedido_id').equals(saida.pedido_id).toArray();
     if (!anterior) {
-      await db.pagamentos.where('pedido_id').equals(saida.pedido_id).delete();
-      await db.saidas.delete(saida.id);
-      await db.pedidos.delete(saida.pedido_id);
-      return;
+      await anular(
+        db,
+        doPedido.filter((p) => !p.anulado_em).map((p) => p.id),
+        motivo,
+        op,
+        ctx,
+      );
+    } else {
+      for (const p of doPedido.filter((x) => x.saida_id === saida.id && !x.anulado_em)) {
+        await db.pagamentos.update(p.id, { saida_id: anterior.id });
+      }
     }
-    await db.pagamentos.where('saida_id').equals(saida.id).modify({ saida_id: anterior.id });
-    await db.saidas.delete(saida.id);
     await atualizarEstadoPedido(db, saida.pedido_id);
+    await tocarPedido(db, saida.pedido_id, ctx);
+    await tocarCaixa(db, saida.caixa_id, ctx);
   },
-  async mudar_estado_saida(db, d, op) {
+  async mudar_estado_saida(db, d, op, ctx) {
     const saida = await db.saidas.get(d.saida_id);
     if (!saida) return;
     await db.saidas.update(saida.id, {
@@ -171,8 +219,10 @@ const aplicadores: { [T in TipoOperacao]: Aplicador<T> } = {
       voltou_em: d.estado === 'voltou' ? op.criada_em : null,
     });
     await atualizarEstadoPedido(db, saida.pedido_id);
+    await tocarPedido(db, saida.pedido_id, ctx);
+    await tocarCaixa(db, saida.caixa_id, ctx);
   },
-  async trocar_pagamento(db, d, op) {
+  async trocar_pagamento(db, d, op, ctx) {
     const saida = await db.saidas.get(d.saida_id);
     const pedido = saida && (await db.pedidos.get(saida.pedido_id));
     if (!saida || !pedido) return;
@@ -180,8 +230,16 @@ const aplicadores: { [T in TipoOperacao]: Aplicador<T> } = {
     const confirmados = doPedido.filter((p) => p.forma === 'pix_antecipado' && p.pix_confirmado);
     const novos = novosPagamentos(pedido, saida.id, d.pagamentos, true, op.criada_em, confirmados);
     const ids = new Set(novos.map((p) => p.id));
-    await db.pagamentos.bulkDelete(doPedido.filter((p) => p.real && !ids.has(p.id)).map((p) => p.id));
     await db.pagamentos.bulkPut(novos);
+    await anular(
+      db,
+      doPedido.filter((p) => p.real && !p.anulado_em && !ids.has(p.id)).map((p) => p.id),
+      d.pagamentos.length === 0 ? 'Voltou para a forma prevista' : 'Forma trocada de novo',
+      op,
+      ctx,
+    );
+    await tocarPedido(db, pedido.id, ctx);
+    await tocarCaixa(db, saida.caixa_id, ctx);
   },
   async sair_de_novo(db, d, op, ctx) {
     const anterior = await db.saidas.get(d.saida_anterior_id);
@@ -208,14 +266,19 @@ const aplicadores: { [T in TipoOperacao]: Aplicador<T> } = {
       criado_em: op.criada_em,
       atualizado_em: op.criada_em,
     });
-    await db.pagamentos.where('saida_id').equals(anterior.id).modify({ saida_id: d.saida_id });
+    for (const p of await db.pagamentos.where('saida_id').equals(anterior.id).toArray()) {
+      if (!p.anulado_em) await db.pagamentos.update(p.id, { saida_id: d.saida_id });
+    }
     await atualizarEstadoPedido(db, anterior.pedido_id);
+    await tocarPedido(db, anterior.pedido_id, ctx);
+    await tocarCaixa(db, caixa.id, ctx);
   },
   async conferir_papel(db, d) {
     await db.saidas.update(d.saida_id, { papel_conferido: d.conferido });
   },
-  async informar_contado(db, d) {
+  async informar_contado(db, d, _op, ctx) {
     await db.caixas.update(d.caixa_id, { dinheiro_contado: d.dinheiro_contado });
+    await tocarCaixa(db, d.caixa_id, ctx);
   },
   async confirmar_acerto(db, d, op, ctx) {
     const caixa = await db.caixas.get(d.caixa_id);
@@ -241,17 +304,24 @@ const aplicadores: { [T in TipoOperacao]: Aplicador<T> } = {
       confirmado_em: op.criada_em,
       reaberto_por: null,
       reaberto_em: null,
+      motivo_reabertura: null,
       criado_em: op.criada_em,
       atualizado_em: op.criada_em,
     });
     await db.caixas.update(caixa.id, { fechado_em: op.criada_em });
+    await tocarCaixa(db, caixa.id, ctx);
   },
   async reabrir_acerto(db, d, op, ctx) {
     const acertos = await db.acertos.where('caixa_id').equals(d.caixa_id).toArray();
     for (const a of acertos.filter((x) => !x.reaberto_em)) {
-      await db.acertos.update(a.id, { reaberto_em: op.criada_em, reaberto_por: ctx.usuarioId });
+      await db.acertos.update(a.id, {
+        reaberto_em: op.criada_em,
+        reaberto_por: ctx.usuarioId,
+        motivo_reabertura: d.motivo,
+      });
     }
     await db.caixas.update(d.caixa_id, { fechado_em: null });
+    await tocarCaixa(db, d.caixa_id, ctx);
   },
   async marcar_pix(db, d, op, ctx) {
     await db.pagamentos.update(d.pagamento_id, {
@@ -317,5 +387,3 @@ export async function aplicarLocal(db: BancoLocal, op: Operacao, ctx: Contexto) 
   const aplicar = aplicadores[op.tipo] as Aplicador<TipoOperacao>;
   await aplicar(db, op.dados, op, ctx);
 }
-
-export { saidaMaisRecente };

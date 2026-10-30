@@ -1,8 +1,8 @@
 // Apoio dos testes de banco: contas do seed.sql, operações e limpeza entre testes.
 import { execFileSync } from 'node:child_process';
-import { randomUUID } from 'node:crypto';
+import { createHmac, randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import type { DadosDe, Database, RespostaOperacao, TipoOperacao } from '@mel/db';
+import { type DadosDe, type Database, type RespostaOperacao, type TipoOperacao, VERSAO_OP } from '@mel/db';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import postgres from 'postgres';
 
@@ -35,6 +35,25 @@ export const ambiente = carregarAmbiente();
 export const sql = postgres(ambiente.dbUrl, { max: 2, onnotice: () => {} });
 
 export const SENHA = 'Mel12345teste';
+// Segredo TOTP de teste do seed.sql (admin e gerente entram com MFA).
+export const SEGREDO_TOTP = 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP';
+
+function base32(texto: string): Buffer {
+  const alfabeto = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  const bits = [...texto].map((ch) => alfabeto.indexOf(ch).toString(2).padStart(5, '0')).join('');
+  const bytes: number[] = [];
+  for (let i = 0; i + 8 <= bits.length; i += 8) bytes.push(Number.parseInt(bits.slice(i, i + 8), 2));
+  return Buffer.from(bytes);
+}
+
+/** Código do app autenticador (RFC 6238: SHA-1, 30 s, 6 dígitos). */
+export function codigoTotp(segredo = SEGREDO_TOTP, agora = Date.now()): string {
+  const contador = Buffer.alloc(8);
+  contador.writeBigUInt64BE(BigInt(Math.floor(agora / 30_000)));
+  const h = createHmac('sha1', base32(segredo)).update(contador).digest();
+  const o = (h[h.length - 1] ?? 0) & 0xf;
+  return String((h.readUInt32BE(o) & 0x7fffffff) % 1_000_000).padStart(6, '0');
+}
 export const CONTAS = {
   felipe: { id: 'a0000000-0000-4000-8000-000000000001', email: 'felipe@mel.test' },
   luan: { id: 'a0000000-0000-4000-8000-000000000002', email: 'luan@mel.test' },
@@ -57,13 +76,25 @@ export interface Sessao {
   conta: Conta;
   id: string;
   db: SupabaseClient<Database>;
-  op<T extends TipoOperacao>(tipo: T, dados: DadosDe<T>, opcoes?: { id?: string }): Promise<RespostaOperacao>;
+  op<T extends TipoOperacao>(
+    tipo: T,
+    dados: DadosDe<T>,
+    opcoes?: { id?: string; criadaEm?: string; versaoOp?: number | null },
+  ): Promise<RespostaOperacao>;
 }
 
-export async function entrar(conta: Conta): Promise<Sessao> {
+/** Entra com e-mail e senha; admin e gerente confirmam o código TOTP, a menos que `semMfa`. */
+export async function entrar(conta: Conta, opcoes: { semMfa?: boolean } = {}): Promise<Sessao> {
   const db = clienteAnonimo();
   const { error } = await db.auth.signInWithPassword({ email: CONTAS[conta].email, password: SENHA });
   if (error) throw error;
+  if ((conta === 'felipe' || conta === 'dona') && !opcoes.semMfa) {
+    const fatores = await db.auth.mfa.listFactors();
+    const fator = fatores.data?.totp[0];
+    if (!fator) throw new Error(`${conta} sem fator TOTP no seed`);
+    const r = await db.auth.mfa.challengeAndVerify({ factorId: fator.id, code: codigoTotp() });
+    if (r.error) throw r.error;
+  }
   return {
     conta,
     id: CONTAS[conta].id,
@@ -73,8 +104,9 @@ export async function entrar(conta: Conta): Promise<Sessao> {
         id: opcoes?.id ?? novoId(),
         tipo,
         dados,
-        criada_em: new Date().toISOString(),
+        criada_em: opcoes?.criadaEm ?? new Date().toISOString(),
         aparelho: 'teste',
+        versao_op: opcoes?.versaoOp === undefined ? VERSAO_OP : opcoes.versaoOp,
       };
       const { data, error: erro } = await db.rpc('aplicar_operacao', { op: operacao as never });
       if (erro) throw erro;
@@ -89,13 +121,20 @@ export function aplicada(r: RespostaOperacao): RespostaOperacao {
   return r;
 }
 
-export async function limpar() {
-  await sql`
-    truncate public.eventos, public.operacoes, public.impressoes, public.sobras, public.faltas, public.acertos,
-      public.pagamentos, public.saidas, public.pedidos, public.caixas, public.noites, public.erros cascade`;
-  await sql`update public.areas set taxa = case nome
-    when 'Aragarças' then 500 when 'Barra' then 1200 when 'Pontal' then 1000 when 'Parque de Exposições' then 1500
-    else taxa end`;
+// O TRUNCATE trava várias tabelas de uma vez e pode cruzar com o Realtime, que lê as mesmas tabelas
+// para conferir a RLS dos assinantes. Se o Postgres acusar deadlock, tenta de novo.
+export async function limpar(tentativa = 1): Promise<void> {
+  try {
+    await sql`
+      truncate public.eventos, public.operacoes, public.impressoes, public.sobras, public.faltas, public.acertos,
+        public.pagamentos, public.saidas, public.pedidos, public.caixas, public.noites, public.erros cascade`;
+    await sql`update public.areas set taxa = case nome
+      when 'Aragarças' then 500 when 'Barra' then 1200 when 'Pontal' then 1000 when 'Parque de Exposições' then 1500
+      else taxa end`;
+  } catch (erro) {
+    if ((erro as { code?: string }).code === '40P01' && tentativa < 5) return limpar(tentativa + 1);
+    throw erro;
+  }
 }
 
 export async function areas(): Promise<Record<string, string>> {
@@ -144,4 +183,19 @@ export async function lancar(
     pagamentos,
   });
   return { r, saidaId, pedidoId };
+}
+
+export async function versaoDoPedido(pedidoId: string): Promise<number> {
+  const [linha] = await sql<{ versao: number }[]>`select versao from public.pedidos where id = ${pedidoId}`;
+  return linha?.versao ?? -1;
+}
+
+export async function versaoDoCaixa(caixaId: string): Promise<number> {
+  const [linha] = await sql<{ versao: number }[]>`select versao from public.caixas where id = ${caixaId}`;
+  return linha?.versao ?? -1;
+}
+
+export async function pedidoDaSaida(saidaId: string): Promise<string> {
+  const [linha] = await sql<{ pedido_id: string }[]>`select pedido_id from public.saidas where id = ${saidaId}`;
+  return linha?.pedido_id ?? '';
 }

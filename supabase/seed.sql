@@ -1,5 +1,6 @@
 -- Só para o Supabase local e a bancada. Nunca em produção.
 -- Contas de teste, uma por papel do MVP. Senha de todas: Mel12345teste
+-- Admin e gerente entram com MFA: o app autenticador de teste usa o segredo TOTP abaixo.
 
 do $$
 declare
@@ -33,5 +34,11 @@ begin
   end loop;
 end
 $$;
+
+-- MFA (TOTP) já verificado para admin e gerente. Segredo de teste: JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP
+insert into auth.mfa_factors (id, user_id, friendly_name, factor_type, status, created_at, updated_at, secret)
+select gen_random_uuid(), p.id, 'Autenticador de teste', 'totp', 'verified', now(), now(), 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP'
+from public.perfis p
+where p.papeis && '{admin,gerente}'::public.papel[];
 
 update public.config set ambiente = 'teste';

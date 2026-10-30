@@ -15,6 +15,7 @@ import {
   pg,
   type Sessao,
   sql,
+  versaoDoCaixa,
 } from './apoio';
 
 const TABELAS = [
@@ -50,9 +51,8 @@ async function conferirAcerto(caixaId: string, quem: Sessao = luan) {
     await sql`select id, caixa_inicial, diaria, dinheiro_contado from public.caixas where id = ${caixaId}`;
   const linhas = {
     pedidos: await sql`select id, codigo from public.pedidos`,
-    saidas: await sql`select id, pedido_id, caixa_id, area_id, taxa, estado, papel_conferido from public.saidas`,
-    pagamentos: await sql`
-      select id, pedido_id, saida_id, forma, valor, troco_pix, real, registrado_em from public.pagamentos`,
+    saidas: await sql`select * from public.saidas`,
+    pagamentos: await sql`select * from public.pagamentos`,
   };
   // biome-ignore lint/suspicious/noExplicitAny: linhas cruas do postgres
   const conta = calcularAcerto(entradaDoCaixa(caixa as any, linhas as any));
@@ -61,6 +61,7 @@ async function conferirAcerto(caixaId: string, quem: Sessao = luan) {
   return quem.op('confirmar_acerto', {
     caixa_id: caixaId,
     acerto_id: novoId(),
+    versao_esperada: await versaoDoCaixa(caixaId),
     esperado: {
       devolver: conta.devolver,
       maquininha: conta.maquininha,
@@ -159,7 +160,7 @@ describe('motoboy', () => {
       pg('pix_antecipado', 20),
       pg('dinheiro', 25),
     ]);
-    expect(r).toMatchObject({ status: 'recusada', motivo: '1234: os pagamentos somam R$ 45,00 e o total é R$ 50,00.' });
+    expect(r).toMatchObject({ status: 'recusada', motivo: '1234: pagamentos somam R$ 45,00, mas o total é R$ 50,00.' });
   });
 
   it('troco por Pix sem parte em dinheiro é recusado (PAG4)', async () => {
@@ -205,6 +206,7 @@ describe('acerto (ACE9)', () => {
     const r = await luan.op('confirmar_acerto', {
       caixa_id: caixas.joao ?? '',
       acerto_id: novoId(),
+      versao_esperada: await versaoDoCaixa(caixas.joao ?? ''),
       esperado: {
         devolver: 1,
         maquininha: 0,
@@ -248,8 +250,10 @@ describe('acerto (ACE9)', () => {
   });
 
   it('a expedição não reabre; o admin reabre e o motoboy volta a editar', async () => {
-    expect((await luan.op('reabrir_acerto', { caixa_id: caixas.joao ?? '' })).motivo).toBe('Sem permissão para isso.');
-    aplicada(await felipe.op('reabrir_acerto', { caixa_id: caixas.joao ?? '' }));
+    expect((await luan.op('reabrir_acerto', { caixa_id: caixas.joao ?? '', motivo: 'Teste' })).motivo).toBe(
+      'Sem permissão para isso.',
+    );
+    aplicada(await felipe.op('reabrir_acerto', { caixa_id: caixas.joao ?? '', motivo: 'Faltou lançar um pedido' }));
     aplicada((await lancar(joao, caixas.joao ?? '', '4444', 30, area.Barra ?? '', [pg('dinheiro', 30)])).r);
   });
 });

@@ -4,7 +4,20 @@
 import { entradaDoCaixa } from '@mel/db';
 import { type ContaAcerto, calcularAcerto } from '@mel/dominio';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { abrirNoite, aplicada, areas, entrar, lancar, limpar, novoId, pg, type Sessao, sql } from './apoio';
+import {
+  abrirNoite,
+  aplicada,
+  areas,
+  entrar,
+  lancar,
+  limpar,
+  novoId,
+  pedidoDaSaida,
+  pg,
+  type Sessao,
+  sql,
+  versaoDoPedido,
+} from './apoio';
 
 let luan: Sessao;
 let joao: Sessao;
@@ -21,9 +34,8 @@ async function contaDoDominio(contado: number | null): Promise<ContaAcerto> {
     await sql`select id, caixa_inicial, diaria, dinheiro_contado from public.caixas where id = ${caixaId}`;
   const linhas = {
     pedidos: await sql`select id, codigo from public.pedidos`,
-    saidas: await sql`select id, pedido_id, caixa_id, area_id, taxa, estado, papel_conferido from public.saidas`,
-    pagamentos: await sql`
-      select id, pedido_id, saida_id, forma, valor, troco_pix, real, registrado_em from public.pagamentos`,
+    saidas: await sql`select * from public.saidas`,
+    pagamentos: await sql`select * from public.pagamentos`,
   };
   // biome-ignore lint/suspicious/noExplicitAny: linhas cruas do postgres
   const entrada = entradaDoCaixa({ ...(caixa as any), dinheiro_contado: contado }, linhas as any);
@@ -102,12 +114,19 @@ describe('conta do servidor = conta do domínio', () => {
     aplicada(
       await joao.op('trocar_pagamento', {
         saida_id: s?.id,
+        versao_esperada: await versaoDoPedido(await pedidoDaSaida(s?.id)),
         pagamentos: [pg('dinheiro', 50), pg('pix_maquininha', 40)],
       }),
     );
     expect(await conferir(null)).toMatchObject({ cartao: 0, devolver: 29300, maquininha: 11200 });
     // Desfazer: volta para a prevista.
-    aplicada(await joao.op('trocar_pagamento', { saida_id: s?.id, pagamentos: [] }));
+    aplicada(
+      await joao.op('trocar_pagamento', {
+        saida_id: s?.id,
+        versao_esperada: await versaoDoPedido(await pedidoDaSaida(s?.id)),
+        pagamentos: [],
+      }),
+    );
     expect(await conferir(null)).toMatchObject({ cartao: 9000, devolver: 24300 });
   });
 
@@ -117,19 +136,29 @@ describe('conta do servidor = conta do domínio', () => {
     expect(await conferir(null)).toMatchObject({ devolver: 28300, entregues: 6 });
   });
 
-  it('desfazer o lançamento apaga o pedido; desfazer o "saiu de novo" devolve os pagamentos', async () => {
+  it('desfazer o lançamento cancela sem apagar; desfazer o "saiu de novo" devolve os pagamentos', async () => {
     const { voltou } = await lancarBase();
     const nova = novoId();
     aplicada(await joao.op('sair_de_novo', { saida_id: nova, saida_anterior_id: voltou.saidaId }));
-    aplicada(await joao.op('cancelar_saida', { saida_id: nova }));
+    aplicada(
+      await joao.op('cancelar_saida', { saida_id: nova, versao_esperada: await versaoDoPedido(voltou.pedidoId) }),
+    );
     const [pgto] = await sql`select saida_id from public.pagamentos where pedido_id = ${voltou.pedidoId}`;
     expect(pgto?.saida_id).toBe(voltou.saidaId);
     aplicada(await joao.op('mudar_estado_saida', { saida_id: voltou.saidaId, estado: 'em_rota' }));
-    aplicada(await joao.op('cancelar_saida', { saida_id: voltou.saidaId }));
-    const [{ n } = { n: -1 }] = await sql<
-      { n: number }[]
-    >`select count(*)::int as n from public.pedidos where id = ${voltou.pedidoId}`;
-    expect(n).toBe(0);
+    aplicada(
+      await joao.op('cancelar_saida', {
+        saida_id: voltou.saidaId,
+        versao_esperada: await versaoDoPedido(voltou.pedidoId),
+        motivo: 'Lançado errado',
+      }),
+    );
+    // OPE3: o pedido fica cancelado e os pagamentos anulados, com motivo; nada some.
+    const [pedido] = await sql`select estado from public.pedidos where id = ${voltou.pedidoId}`;
+    expect(pedido?.estado).toBe('cancelado');
+    const anulados = await sql`select motivo_anulacao, anulado_por from public.pagamentos
+      where pedido_id = ${voltou.pedidoId}`;
+    expect(anulados).toEqual([{ motivo_anulacao: 'Lançado errado', anulado_por: joao.id }]);
     expect(await conferir(null)).toMatchObject({ entregues: 5, voltaram: 0, receber: 7400 });
   });
 

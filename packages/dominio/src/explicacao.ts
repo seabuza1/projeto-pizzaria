@@ -1,14 +1,14 @@
 // ACE10: toda tela de acerto mostra de onde vem cada número.
 import type { ContaAcerto, Liquidacao } from './acerto';
-import { formatarCurto, formatarReais } from './dinheiro';
+import { type Centavos, formatarCurto, formatarReais } from './dinheiro';
 
 export interface Parte {
-  valor: number;
+  valor: Centavos;
   texto: string;
 }
 
 export interface Explicado {
-  total: number;
+  total: Centavos;
   partes: Parte[];
 }
 
