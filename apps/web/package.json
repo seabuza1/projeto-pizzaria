@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run --passWithNoTests",
-    "test:db": "MEL_TESTE_BANCO=1 vitest run src/data"
+    "test:db": "MEL_TESTE_BANCO=1 vitest run src/data",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@mel/db": "workspace:*",
@@ -23,6 +24,7 @@
     "uuid": "14.0.3"
   },
   "devDependencies": {
+    "@playwright/test": "1.63.0",
     "@tailwindcss/vite": "4.3.3",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
