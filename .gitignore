@@ -1,0 +1,36 @@
+# Dependências e builds
+node_modules/
+dist/
+.vite/
+coverage/
+playwright-report/
+test-results/
+
+# Segredos: nunca no repositório
+.env
+.env.*
+!.env.example
+*.p12
+*.pfx
+*.pem
+*.key
+certificados/
+
+# Backups e dados reais
+backups/
+*.backup.json
+*.dump
+
+# Supabase local
+supabase/.temp/
+supabase/.branches/
+
+# Claude Code (pessoal)
+.claude/settings.local.json
+
+# Graphify (mapa gerado; refaça com `graphify .`)
+graphify-out/
+
+# Sistema
+.DS_Store
+Thumbs.db
