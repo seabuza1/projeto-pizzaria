@@ -1,7 +1,7 @@
-// ARQUITETURA, Robustez: sem batimento do agente, "Impressora sem resposta" e a impressão pelo navegador.
+// ARQUITETURA, Robustez: "Impressora sem resposta" com a impressão pelo navegador, e "Relatar problema".
 import { randomUUID } from 'node:crypto';
 import { expect, test } from '@playwright/test';
-import { bancoLimpo, entrarComo, ler, noBanco, op, token } from './apoio';
+import { bancoLimpo, doBanco, entrarComo, ler, noBanco, op, token } from './apoio';
 
 test('impressora sem resposta: aviso, impressão pelo navegador como reserva; com batimento, o aviso some', async ({
   page,
@@ -34,4 +34,17 @@ test('impressora sem resposta: aviso, impressão pelo navegador como reserva; co
   await page.reload();
   await expect(page.getByRole('link', { name: 'Noites antigas' })).toBeVisible();
   await expect(aviso).toHaveCount(0);
+});
+
+test('"Relatar problema" grava a versão, a tela e as últimas operações, sem os dados', async ({ page }) => {
+  await bancoLimpo();
+  await entrarComo(page, 'luan@mel.test');
+  await page.getByRole('button', { name: /^Abrir a noite de/ }).click();
+  await expect(page.getByText('● Salvo')).toBeVisible({ timeout: 10_000 });
+  await page.getByRole('button', { name: 'Relatar problema' }).click();
+  await expect(page.getByText('Problema enviado, com a tela e as últimas operações. Obrigado!')).toBeVisible();
+  const registro = async () =>
+    doBanco(`select contexto ->> 'rota', contexto -> 'ultimas' -> 0 ->> 'tipo', contexto -> 'ultimas' -> 0 ->> 'status',
+      contexto -> 'ultimas' -> 0 ? 'dados' from public.erros where mensagem = 'Relatar problema'`);
+  await expect.poll(registro, { timeout: 10_000 }).toBe('/expedicao|abrir_noite|aplicada|f');
 });

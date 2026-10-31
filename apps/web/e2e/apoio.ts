@@ -132,6 +132,14 @@ export function noBanco(sql: string) {
   );
 }
 
+/** Consulta direta no banco local, para conferir o que o app gravou. Devolve as linhas em texto. */
+export function doBanco(sql: string): string {
+  return execFileSync('docker', ['exec', '-i', 'supabase_db_mel-pdv', 'psql', '-U', 'postgres', '-tA'], {
+    input: sql,
+    encoding: 'utf8',
+  }).trim();
+}
+
 export function pedidoDoBalcao(noiteId: string, codigo: string, reais: number, area: string, forma: string) {
   const pedidoId = randomUUID();
   const centavos = Math.round(reais * 100);

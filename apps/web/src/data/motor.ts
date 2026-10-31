@@ -51,6 +51,14 @@ const TABELAS_GERAIS = [
 ] as const;
 const MAX_TENTATIVAS = 5;
 
+export interface OperacaoAnotada {
+  id: string;
+  tipo: string;
+  status: RespostaOperacao['status'];
+  codigo: string | null;
+  em: string;
+}
+
 export type Bloqueio = { tipo: 'atualizar' | 'mfa'; mensagem: string };
 
 // MEL02: app antigo demais; MEL03: falta o código do autenticador. A operação fica na fila.
@@ -167,6 +175,7 @@ export class Motor {
         };
       }
       await banco.fila.delete(op.id);
+      await this.anotar(op.tipo, op.id, resposta);
       enviou = true;
       if (resposta.status === 'recusada') {
         recusou = true;
@@ -184,6 +193,20 @@ export class Motor {
     // Recusada: o aparelho desfaz o efeito local baixando a verdade do servidor.
     // Noite nova aberta neste aparelho: baixa para o Realtime passar a escutar a noite certa.
     if (recusou || (enviou && (await this.noiteLocal()) !== this.noiteDoCanal)) await this.baixarAgora();
+  }
+
+  /** As últimas 20 operações enviadas, só tipo e situação (sem os dados), para o "Relatar problema". */
+  private async anotar(tipo: string, id: string, resposta: RespostaOperacao) {
+    const { banco } = this.o;
+    const lista = (await banco.lerMeta<OperacaoAnotada[]>('ultimas_operacoes')) ?? [];
+    const item: OperacaoAnotada = {
+      id,
+      tipo,
+      status: resposta.status,
+      codigo: resposta.codigo,
+      em: new Date().toISOString(),
+    };
+    await banco.gravarMeta('ultimas_operacoes', [...lista, item].slice(-20));
   }
 
   private async noiteLocal(): Promise<string | null> {

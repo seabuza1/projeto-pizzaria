@@ -50,7 +50,7 @@ import {
   type Perfil,
   type Saida,
 } from './banco-local';
-import { type Bloqueio, Motor } from './motor';
+import { type Bloqueio, Motor, type OperacaoAnotada } from './motor';
 import { supabase } from './supabase';
 
 export type {
@@ -91,6 +91,38 @@ function idDoAparelho(): string {
 }
 
 export const VERSAO = import.meta.env.VITE_VERSAO ?? 'dev';
+/**
+ * "Relatar problema" (ARQUITETURA, Robustez): grava em `erros` a versão, a tela e as últimas 20 operações do
+ * aparelho, só o tipo e a situação de cada uma: os dados podem ter telefone e endereço de cliente.
+ */
+export async function relatarProblema() {
+  const ultimas = (await banco.lerMeta<OperacaoAnotada[]>('ultimas_operacoes')) ?? [];
+  const naFila = (await banco.fila.orderBy('seq').toArray()).map((op) => ({
+    tipo: op.tipo,
+    tentativas: op.tentativas,
+  }));
+  const item = {
+    origem: 'web',
+    mensagem: 'Relatar problema',
+    pilha: null,
+    contexto: {
+      rota: typeof location !== 'undefined' ? location.pathname : '',
+      online: typeof navigator !== 'undefined' ? navigator.onLine : null,
+      ultimas: ultimas.map(({ tipo, status, codigo, em }) => ({ tipo, status, codigo, em })),
+      naFila,
+    },
+    versao: VERSAO,
+  };
+  try {
+    const { error } = await supabase.rpc('registrar_erro', { p_erro: item });
+    if (error) throw error;
+  } catch {
+    // Sem internet: guarda com os outros erros e manda depois.
+    const guardados = ((await banco.lerMeta<unknown[]>('erros')) ?? []).slice(-19);
+    await banco.gravarMeta('erros', [...guardados, item]);
+  }
+}
+
 /** Sobe quando o app deixa de funcionar com o servidor antigo; comparada com config.versao_minima_app. */
 export const VERSAO_APP = 1;
 

@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { Navigate, NavLink, Route, Routes } from 'react-router';
 import { AvisoImpressora } from './compartilhado/AvisoImpressora';
 import type { FichaModulo } from './compartilhado/modulo';
+import { RelatarProblema } from './compartilhado/RelatarProblema';
 import { AvisoBloqueio, FaixaTeste, RodapeAvisos } from './compartilhado/status';
 import { type Perfil, useAppDesatualizado, useConfig, useSessao } from './data/repo';
 import { modulos } from './funcionalidades';
@@ -75,6 +76,7 @@ function Dentro({ perfil }: { perfil: Perfil }) {
         />
         <Route path="*" element={<Navigate to={inicio} replace />} />
       </Routes>
+      <RelatarProblema />
     </>
   );
 }
