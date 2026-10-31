@@ -2,14 +2,14 @@
 import { formatarDataCurta } from '@mel/dominio';
 import { useState } from 'react';
 import { Link } from 'react-router';
-import { curto, reais, SIGLA_FORMA } from '../../compartilhado/ui';
+import { Botao, curto, Folha as FolhaQueSobe, reais, SIGLA_FORMA } from '../../compartilhado/ui';
 import {
   acoes,
   type Caixa,
   contaDoCaixa,
   type DadosNoite,
   type Noite,
-  type Perfil,
+  type Pagamento,
   pagamentosVigentes,
   pixDaNoite,
   type Saida,
@@ -90,17 +90,31 @@ function Coluna({
 
 function ColunaPix({ dados }: { dados: DadosNoite }) {
   const pix = pixDaNoite(dados);
+  const [desmarcando, setDesmarcando] = useState<{ pagamento: Pagamento; codigo: string } | null>(null);
+  const [motivo, setMotivo] = useState('');
+
+  function desmarcar() {
+    if (!desmarcando) return;
+    void acoes.marcarPix(desmarcando.pagamento.id, false, motivo.trim());
+    setDesmarcando(null);
+    setMotivo('');
+  }
+
   return (
     <div className="flex w-44 shrink-0 flex-col gap-1 rounded-xl border border-borda bg-cartao/40 p-2 sm:w-auto sm:flex-1">
       <div className="border-b border-borda pb-1 font-semibold">PIX</div>
       {pix.length === 0 && <span className="text-sm text-apagado">Nenhum Pix antecipado.</span>}
       {pix.map(({ pagamento, pedido }) => (
-        // PAG5: tocar marca "caiu" (e tocar de novo desmarca).
+        // PAG5: tocar marca "caiu"; desmarcar pede o motivo (OPE3).
         <button
           type="button"
           key={pagamento.id}
           className="flex min-h-12 items-center justify-between gap-2 text-left text-sm"
-          onClick={() => void acoes.marcarPix(pagamento.id, !pagamento.pix_confirmado)}
+          onClick={() =>
+            pagamento.pix_confirmado
+              ? setDesmarcando({ pagamento, codigo: pedido.codigo })
+              : void acoes.marcarPix(pagamento.id, true)
+          }
         >
           <span className="numero">{pedido.codigo}</span>
           <span className="numero text-apagado">{curto(pagamento.valor)}</span>
@@ -109,6 +123,21 @@ function ColunaPix({ dados }: { dados: DadosNoite }) {
           </span>
         </button>
       ))}
+      <FolhaQueSobe
+        aberta={desmarcando !== null}
+        aoFechar={() => setDesmarcando(null)}
+        titulo={`Desmarcar o Pix da ${desmarcando?.codigo ?? ''}`}
+      >
+        <input
+          className="min-h-12 rounded-xl border border-borda bg-cartao px-3"
+          placeholder="Motivo (ex.: marquei o Pix errado)"
+          value={motivo}
+          onChange={(e) => setMotivo(e.target.value)}
+        />
+        <Botao variante="perigo" disabled={motivo.trim() === ''} onClick={desmarcar}>
+          Desmarcar
+        </Botao>
+      </FolhaQueSobe>
     </div>
   );
 }

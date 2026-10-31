@@ -7,6 +7,8 @@ import { IndicadorFila } from '../../compartilhado/status';
 import { Botao, Chip, DoisToques, Folha as FolhaQueSobe } from '../../compartilhado/ui';
 import { acoes, type Perfil, sair, useConfig, useDadosNoite, useMotoboys, useNoite, usePerfis } from '../../data/repo';
 import { AcertoLuan } from './AcertoLuan';
+import { Despacho } from './Despacho';
+import { FecharNoite } from './FecharNoite';
 import { Folha } from './Folha';
 import { LancarComanda } from './LancarComanda';
 import { Resumo } from './Resumo';
@@ -28,6 +30,7 @@ export function Expedicao({ perfil }: { perfil: Perfil }) {
   const nomeMotoboy = (id: string) => motoboys.find((m) => m.id === id)?.nome ?? '?';
   const cfg = useConfig();
   const [lancando, setLancando] = useState(false);
+  const [fechando, setFechando] = useState(false);
 
   if (noite === undefined || dados === undefined) return <Topo titulo="Painel" />;
 
@@ -61,7 +64,9 @@ export function Expedicao({ perfil }: { perfil: Perfil }) {
   // Decisão 0007: o motoboy é um cadastro; a chegada abre o caixa dele.
   const semCaixa = motoboys.filter((m) => m.ativo && !comCaixa.has(m.id));
   const semAcerto = dados.caixas.filter((c) => !dados.acertos.some((a) => a.caixa_id === c.id));
-  const pendentes = semAcerto.length;
+  const caixasAbertos = semAcerto.map((c) => ({ id: c.id, nome: nomeMotoboy(c.motoboy_id) }));
+  // ERROS-PREVISTOS: a noite de ontem ficou aberta. Fechar (vendo os pendentes) libera abrir a de hoje.
+  const deOntem = aberta.data !== hoje;
 
   return (
     <>
@@ -71,6 +76,13 @@ export function Expedicao({ perfil }: { perfil: Perfil }) {
           index
           element={
             <div className="flex flex-col">
+              {deOntem && (
+                <div className="m-3 flex flex-col gap-2 rounded-xl bg-amber-950 px-3 py-2 text-aviso">
+                  <span>A noite de {formatarData(aberta.data)} ainda está aberta.</span>
+                  <Botao onClick={() => setFechando(true)}>Ver pendentes e fechar</Botao>
+                </div>
+              )}
+              <Despacho dados={dados} caixas={caixasAbertos} />
               {semCaixa.length > 0 && (
                 <div className="flex flex-wrap items-center gap-2 px-3 pt-3">
                   <span className="text-sm text-apagado">Chegou:</span>
@@ -99,12 +111,7 @@ export function Expedicao({ perfil }: { perfil: Perfil }) {
                 </Botao>
               )}
               <FolhaQueSobe aberta={lancando} aoFechar={() => setLancando(false)} titulo="Lançar comanda de papel">
-                {lancando && (
-                  <LancarComanda
-                    caixas={semAcerto.map((c) => ({ id: c.id, nome: nomeMotoboy(c.motoboy_id) }))}
-                    pedidosDaNoite={dados.pedidos}
-                  />
-                )}
+                {lancando && <LancarComanda caixas={caixasAbertos} pedidosDaNoite={dados.pedidos} />}
               </FolhaQueSobe>
               <div className="grid grid-cols-2 gap-2 p-3">
                 <Link
@@ -113,12 +120,22 @@ export function Expedicao({ perfil }: { perfil: Perfil }) {
                 >
                   Resumo da noite
                 </Link>
-                <DoisToques
-                  rotulo="Fechar a noite"
-                  confirmar={pendentes > 0 ? `${pendentes} sem acerto. Fechar?` : 'Toque de novo para fechar'}
-                  aoConfirmar={() => void acoes.fecharNoite(aberta.id)}
-                />
+                <Botao onClick={() => setFechando(true)}>Fechar a noite</Botao>
               </div>
+              <FolhaQueSobe
+                aberta={fechando}
+                aoFechar={() => setFechando(false)}
+                titulo={`Fechar a noite de ${formatarData(aberta.data)}`}
+              >
+                {fechando && (
+                  <FecharNoite
+                    noite={aberta}
+                    dados={dados}
+                    nomeMotoboy={nomeMotoboy}
+                    aoFechar={() => setFechando(false)}
+                  />
+                )}
+              </FolhaQueSobe>
               <Botao variante="fantasma" className="mx-3" onClick={() => void sair(true)}>
                 Sair
               </Botao>

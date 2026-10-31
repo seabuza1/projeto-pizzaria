@@ -10,6 +10,7 @@ import {
   type DadosNoite,
   type Perfil,
   pagamentosVigentes,
+  prontosDaNoite,
   useAreas,
   useConfig,
 } from '../../data/repo';
@@ -87,6 +88,17 @@ export function AcertoLuan({
     .filter((s) => s.caixa_id === caixa.id && !s.cancelada_em)
     .sort((a, b) => Number(a.papel_conferido) - Number(b.papel_conferido));
   const l = conta.liquidacao;
+  // ERROS-PREVISTOS: Luan esqueceu de despachar; a comanda devolvida sem saída aparece aqui.
+  const semSaida = acerto ? [] : prontosDaNoite(dados);
+  // ACE7: a ordem de chegada muda até o primeiro acerto da noite.
+  const ordemEditavel = dados.acertos.length === 0 && dados.caixas.length > 1;
+
+  async function eraDele(pedidoId: string, codigo: string) {
+    const [saida] = await acoes.despachar(caixa?.id ?? '', [pedidoId]);
+    mostrarAviso(`${codigo} com ${nomeMotoboy(caixa?.motoboy_id ?? '')}`, {
+      desfazer: () => saida && void acoes.cancelarSaida(saida, 'Desfeito: não era dele'),
+    });
+  }
 
   async function confirmar() {
     await acoes.confirmarAcerto(caixa?.id ?? '', conta);
@@ -122,6 +134,39 @@ export function AcertoLuan({
             desabilitado={false}
             aoSalvar={(v) => v !== null && void acoes.editarCaixa(caixa.id, { diaria: v })}
           />
+          {ordemEditavel && (
+            <div className="flex items-center justify-between gap-2">
+              <span>Ordem de chegada</span>
+              <span className="flex gap-2">
+                <Botao
+                  disabled={caixa.ordem_chegada <= 1}
+                  onClick={() => void acoes.mudarOrdem(caixa.id, caixa.ordem_chegada - 1)}
+                >
+                  ↑ Antes
+                </Botao>
+                <Botao
+                  disabled={caixa.ordem_chegada >= dados.caixas.length}
+                  onClick={() => void acoes.mudarOrdem(caixa.id, caixa.ordem_chegada + 1)}
+                >
+                  ↓ Depois
+                </Botao>
+              </span>
+            </div>
+          )}
+        </Secao>
+      )}
+
+      {semSaida.length > 0 && (
+        <Secao titulo={`Comanda sem saída (${semSaida.length})`}>
+          <p className="text-sm text-apagado">Se ele trouxe uma destas, toque em "Era dele".</p>
+          {semSaida.map(({ pedido }) => (
+            <div key={pedido.id} className="flex min-h-12 items-center gap-3 border-b border-borda py-1">
+              <span className="numero text-xl">{pedido.codigo}</span>
+              <span className="flex-1 text-sm text-apagado">{pedido.area_id ? nomeArea(pedido.area_id) : ''}</span>
+              <span className="numero">{reais(pedido.total)}</span>
+              <Botao onClick={() => void eraDele(pedido.id, pedido.codigo)}>Era dele</Botao>
+            </div>
+          ))}
         </Secao>
       )}
 

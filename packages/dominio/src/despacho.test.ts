@@ -21,12 +21,14 @@ const pix = (pedidoId: string, confirmado: boolean, anulado = false): PagamentoD
   pedidoId,
   forma: 'pix_antecipado',
   pixConfirmado: confirmado,
+  real: false,
   anulado,
 });
 const din = (pedidoId: string): PagamentoDespacho => ({
   pedidoId,
   forma: 'dinheiro',
   pixConfirmado: false,
+  real: false,
   anulado: false,
 });
 
@@ -38,6 +40,9 @@ describe('situação do Pix antecipado (PAG5)', () => {
     expect(situacaoPix('0017', [pix('0017', false)])).toBe('conferir');
     expect(situacaoPix('0017', [pix('0017', true), pix('0017', false)])).toBe('conferir');
     expect(situacaoPix('0017', [pix('0017', true), din('0017')])).toBe('caiu');
+  });
+  it('a forma confirmada na porta vale: Pix que não caiu e foi pago em dinheiro não fica pendente', () => {
+    expect(situacaoPix('0017', [pix('0017', false), { ...din('0017'), real: true }])).toBeNull();
   });
   it('Pix anulado (troca de forma) não conta', () => {
     expect(situacaoPix('0017', [pix('0017', false, true)])).toBeNull();

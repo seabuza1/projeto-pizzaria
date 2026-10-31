@@ -8,7 +8,14 @@ import {
   saidaParaDominio,
   type TipoOperacao,
 } from '@mel/db';
-import { type ContaAcerto, calcularAcerto, type Forma, pagamentosDaSaida } from '@mel/dominio';
+import {
+  type ContaAcerto,
+  calcularAcerto,
+  type Forma,
+  pagamentosDaSaida,
+  pendenciasDaNoite,
+  prontosParaSair,
+} from '@mel/dominio';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useSyncExternalStore } from 'react';
 import { v7 as uuidv7 } from 'uuid';
@@ -386,6 +393,13 @@ export const acoes = {
     await executar('abrir_noite', { noite_id: noiteId });
     return noiteId;
   },
+  /** Despacho (F1): uma saída para cada pedido, com o motoboy do caixa. Devolve as saídas, para o "Desfazer". */
+  async despachar(caixaId: string, pedidoIds: readonly string[]) {
+    const saidas = pedidoIds.map((pedido_id) => ({ pedido_id, saida_id: novoId() }));
+    await executar('despachar', { caixa_id: caixaId, saidas });
+    return saidas.map((s) => s.saida_id);
+  },
+  mudarOrdem: (caixaId: string, ordem: number) => executar('mudar_ordem_caixa', { caixa_id: caixaId, ordem }),
   abrirCaixa: (noiteId: string, motoboyId: string) =>
     executar('abrir_caixa', { caixa_id: novoId(), noite_id: noiteId, motoboy_id: motoboyId }),
   editarCaixa: (caixaId: string, valores: { caixa_inicial?: number; diaria?: number }) =>
@@ -417,8 +431,9 @@ export const acoes = {
     return acertoId;
   },
   reabrirAcerto: (caixaId: string, motivo: string) => executar('reabrir_acerto', { caixa_id: caixaId, motivo }),
-  marcarPix: (pagamentoId: string, confirmado: boolean) =>
-    executar('marcar_pix', { pagamento_id: pagamentoId, confirmado }),
+  /** Desmarcar o "caiu" pede o motivo (OPE3). */
+  marcarPix: (pagamentoId: string, confirmado: boolean, motivo?: string) =>
+    executar('marcar_pix', { pagamento_id: pagamentoId, confirmado, ...(motivo ? { motivo } : {}) }),
   fecharNoite: (noiteId: string) => executar('fechar_noite', { noite_id: noiteId }),
   reabrirNoite: (noiteId: string) => executar('reabrir_noite', { noite_id: noiteId }),
   async pedirImpressao(p: {
@@ -474,15 +489,45 @@ export async function areaSugerida(codigo: string): Promise<string | null> {
 export const useRecusas = () =>
   useLiveQuery(async () => (await banco.recusas.orderBy('em').reverse().limit(5).toArray()) ?? [], [], []);
 
-/** Coluna PIX: os Pix antecipados que valem na noite (os da saída mais recente de cada pedido). */
-export function pixDaNoite(dados: DadosNoite): { pagamento: Pagamento; pedido: Pedido; caixaId: string }[] {
+function paraDespacho(dados: DadosNoite) {
+  return {
+    pedidos: dados.pedidos.map((p) => ({ ...p, criadoEm: p.criado_em })),
+    saidas: dados.saidas.map((s) => ({ pedidoId: s.pedido_id, cancelada: Boolean(s.cancelada_em) })),
+    pagamentos: dados.pagamentos.map((p) => ({
+      pedidoId: p.pedido_id,
+      forma: p.forma,
+      pixConfirmado: p.pix_confirmado,
+      real: p.real,
+      anulado: Boolean(p.anulado_em),
+    })),
+  };
+}
+
+/** Despacho (F1): as entregas que ainda não saíram, por ordem de balcão, com a situação do Pix. */
+export function prontosDaNoite(dados: DadosNoite) {
+  const d = paraDespacho(dados);
+  return prontosParaSair(d.pedidos, d.saidas, d.pagamentos);
+}
+
+/** O que o fechamento da noite lista (F1, Fluxo da noite, 7). */
+export function pendenciasDe(dados: DadosNoite) {
+  return pendenciasDaNoite({
+    ...paraDespacho(dados),
+    caixas: dados.caixas,
+    acertos: dados.acertos.map((a) => ({ caixaId: a.caixa_id })),
+  });
+}
+
+/** Coluna PIX: todos os Pix antecipados que valem na noite, inclusive dos pedidos que ainda não saíram. */
+export function pixDaNoite(dados: DadosNoite): { pagamento: Pagamento; pedido: Pedido }[] {
   const ultima = new Map<string, Saida>();
   for (const s of dados.saidas) if (!s.cancelada_em) ultima.set(s.pedido_id, s);
   return dados.pedidos.flatMap((pedido) => {
+    if (pedido.estado === 'cancelado') return [];
     const saida = ultima.get(pedido.id);
-    if (!saida || pedido.estado === 'cancelado') return [];
-    return pagamentosVigentes(saida, dados.pagamentos)
-      .filter((p) => p.forma === 'pix_antecipado')
-      .map((pagamento) => ({ pagamento, pedido, caixaId: saida.caixa_id }));
+    const doPedido = dados.pagamentos.filter((p) => p.pedido_id === pedido.id && !p.anulado_em);
+    const reais = doPedido.filter((p) => p.real);
+    const vigentes = saida ? pagamentosVigentes(saida, dados.pagamentos) : reais.length > 0 ? reais : doPedido;
+    return vigentes.filter((p) => p.forma === 'pix_antecipado').map((pagamento) => ({ pagamento, pedido }));
   });
 }

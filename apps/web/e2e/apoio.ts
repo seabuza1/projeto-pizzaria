@@ -16,6 +16,7 @@ const ANON = status.ANON_KEY ?? '';
 export const SENHA = 'Mel12345teste';
 export const IDS = {
   joao: 'a0000000-0000-4000-8000-000000000004',
+  pedro: 'a0000000-0000-4000-8000-000000000005',
 };
 
 export async function token(email: string): Promise<string> {
@@ -88,4 +89,40 @@ export async function lancar(page: Page, codigo: string, total: string, area: Re
   await page.getByRole('button', { name: area }).click();
   await page.getByRole('button', { name: forma, exact: true }).click();
   await expect(page.getByText(`${codigo} lançada`)).toBeVisible();
+}
+
+/**
+ * Pedido do balcão, já autorizado, com o pagamento previsto na comanda.
+ * Até a tela de pedido existir (F2, etapa 7 do MVP), ele nasce direto no banco local.
+ */
+/** SQL direto no banco local, só para montar cenários que o app ainda não cria. */
+export function noBanco(sql: string) {
+  execFileSync(
+    'docker',
+    ['exec', '-i', 'supabase_db_mel-pdv', 'psql', '-U', 'postgres', '-v', 'ON_ERROR_STOP=1', '-q'],
+    {
+      input: sql,
+      stdio: ['pipe', 'ignore', 'inherit'],
+    },
+  );
+}
+
+export function pedidoDoBalcao(noiteId: string, codigo: string, reais: number, area: string, forma: string) {
+  const pedidoId = randomUUID();
+  const centavos = Math.round(reais * 100);
+  const sql = `
+    insert into public.pedidos (id, noite_id, codigo, origem, tipo, area_id, total)
+    values ('${pedidoId}', '${noiteId}', '${codigo}', 'whatsapp', 'entrega',
+      (select id from public.areas where nome = '${area}'), ${centavos});
+    insert into public.pagamentos (noite_id, pedido_id, forma, valor)
+    values ('${noiteId}', '${pedidoId}', '${forma}', ${centavos});`;
+  execFileSync(
+    'docker',
+    ['exec', '-i', 'supabase_db_mel-pdv', 'psql', '-U', 'postgres', '-v', 'ON_ERROR_STOP=1', '-q'],
+    {
+      input: sql,
+      stdio: ['pipe', 'ignore', 'inherit'],
+    },
+  );
+  return pedidoId;
 }

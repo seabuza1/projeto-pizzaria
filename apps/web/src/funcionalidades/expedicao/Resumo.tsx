@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 import { Link } from 'react-router';
 import { baixarArquivo } from '../../compartilhado/arquivo';
 import { Botao, Linha, Secao } from '../../compartilhado/ui';
-import { contaDoCaixa, type DadosNoite, type Noite, type Perfil, useAreas } from '../../data/repo';
+import { contaDoCaixa, type DadosNoite, type Noite, useAreas } from '../../data/repo';
 
 export function Resumo({
   noite,

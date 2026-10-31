@@ -20,6 +20,8 @@ export interface PagamentoDespacho {
   pedidoId: string;
   forma: Forma;
   pixConfirmado: boolean;
+  /** PAG3: forma confirmada na porta ("Trocou a forma"); vale no lugar da prevista. */
+  real: boolean;
   anulado: boolean;
 }
 
@@ -31,8 +33,11 @@ export interface ProntoParaSair<P extends PedidoDespacho = PedidoDespacho> {
   pix: SituacaoPix;
 }
 
-const pixDoPedido = (pedidoId: string, pagamentos: readonly PagamentoDespacho[]) =>
-  pagamentos.filter((p) => p.pedidoId === pedidoId && p.forma === 'pix_antecipado' && !p.anulado);
+function pixDoPedido(pedidoId: string, pagamentos: readonly PagamentoDespacho[]) {
+  const validos = pagamentos.filter((p) => p.pedidoId === pedidoId && !p.anulado);
+  const reais = validos.filter((p) => p.real);
+  return (reais.length > 0 ? reais : validos).filter((p) => p.forma === 'pix_antecipado');
+}
 
 export function situacaoPix(pedidoId: string, pagamentos: readonly PagamentoDespacho[]): SituacaoPix {
   const pix = pixDoPedido(pedidoId, pagamentos);
