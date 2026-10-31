@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   type ContaAcerto,
   calcularAcerto,
+  dicaDiferenca,
   type EntradaAcerto,
   type EstadoSaida,
   type PagamentoAcerto,
@@ -295,19 +296,44 @@ describe('acerto do motoboy (F1)', () => {
     expect(conta.papelFaltando.map((p) => p.codigo)).toEqual(['2672']);
   });
 
-  it('T18 saída em rota no fechamento conta como entregue, com aviso', () => {
+  it('T18 saída sem "Voltou" no fechamento conta como entregue, sem aviso', () => {
     const caixa = noiteBase();
     caixa.lancar('5555', 40, 'Aragarças', [din(40)], 'em_rota');
     const conta = calcularAcerto(caixa.entrada());
-    expect(conta).toMatchObject({ devolver: r(283), receber: r(91), entregues: 6 });
-    expect(conta.avisos).toEqual([
+    expect(conta).toMatchObject({ devolver: r(283), receber: r(91), entregues: 6, voltaram: 1 });
+    expect(conta).not.toHaveProperty('avisos');
+  });
+
+  it('T20 dica de diferença: aponta a comanda provável, e a troca de forma resolve', () => {
+    // O cliente da 2672 pagou os 90 em dinheiro e ninguém trocou a forma.
+    const caixa = noiteBase();
+    const antes = calcularAcerto(caixa.entrada({ dinheiroContado: r(333) }));
+    expect(antes.liquidacao).toMatchObject({ dif: r(90), sobra: r(90) });
+    expect(dicaDiferenca(antes)).toEqual([
       {
-        tipo: 'saida_em_rota',
+        pagamentoId: expect.any(String),
         saidaId: expect.any(String),
-        codigo: '5555',
-        mensagem: '5555 ainda em rota: contada como entregue.',
+        codigo: '2672',
+        forma: 'cartao',
+        valor: r(90),
+        pergunta: 'pagou em dinheiro?',
       },
     ]);
+    // A dica não troca nada sozinha: depois de "Trocou a forma" para dinheiro, a conta bate.
+    caixa.trocarForma('2672', [din(90)]);
+    const depois = calcularAcerto(caixa.entrada({ dinheiroContado: r(333) }));
+    expect(depois).toMatchObject({ devolver: r(333), maquininha: r(72) });
+    expect(depois.liquidacao).toMatchObject({ dif: 0, sobra: 0 });
+    expect(dicaDiferenca(depois)).toEqual([]);
+  });
+
+  it('dica de diferença quando falta: pagamentos em dinheiro com o valor da falta', () => {
+    // Contou 113 a menos: talvez a 3557 tenha pago no cartão.
+    const conta = calcularAcerto(noiteBase().entrada({ dinheiroContado: r(130) }));
+    expect(dicaDiferenca(conta).map((d) => [d.codigo, d.pergunta])).toEqual([
+      ['3557', 'pagou no cartão ou Pix na máquina?'],
+    ]);
+    expect(dicaDiferenca(calcularAcerto(noiteBase().entrada()))).toEqual([]);
   });
 });
 

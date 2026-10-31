@@ -15,12 +15,6 @@ export function ContaDetalhada({ conta }: { conta: ContaAcerto }) {
 
   return (
     <div className="flex flex-col gap-3">
-      {conta.avisos.map((a) => (
-        <p key={a.saidaId} className="rounded-xl bg-amber-950 px-3 py-2 text-aviso">
-          {a.mensagem}
-        </p>
-      ))}
-
       <Secao titulo="Devolver">
         <Linha rotulo="Devolver" valor={conta.devolver} forte />
         <p className="text-sm text-apagado">{textoDasPartes(e.devolver)}</p>

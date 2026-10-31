@@ -44,7 +44,7 @@ async function contaDoDominio(contado: number | null): Promise<ContaAcerto> {
 async function conferir(contado: number | null) {
   const servidor = await contaDoServidor(contado);
   const dominio = await contaDoDominio(contado);
-  const { porArea, papelFaltando, listaMaquininha, avisos, ...totais } = dominio;
+  const { porArea, papelFaltando, listaMaquininha, naPorta, ...totais } = dominio;
   expect(servidor).toEqual(totais);
   return servidor;
 }

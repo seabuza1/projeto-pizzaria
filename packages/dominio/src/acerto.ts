@@ -81,11 +81,17 @@ export interface ItemMaquininha {
   valor: Centavos;
 }
 
-export interface Aviso {
-  tipo: 'saida_em_rota';
+/** Pagamento que vale na conta, com a comanda e a saída a que pertence. */
+export interface PagamentoNaPorta {
+  pagamentoId: string;
   saidaId: string;
   codigo: string;
-  mensagem: string;
+  forma: Forma;
+  valor: Centavos;
+}
+
+export interface Dica extends PagamentoNaPorta {
+  pergunta: 'pagou em dinheiro?' | 'pagou no cartão ou Pix na máquina?';
 }
 
 export interface ContaAcerto {
@@ -105,7 +111,8 @@ export interface ContaAcerto {
   porArea: Record<string, TotalArea>;
   papelFaltando: SaidaSemPapel[];
   listaMaquininha: ItemMaquininha[];
-  avisos: Aviso[];
+  /** Pagamentos que valem, na ordem da hora (base da dica de diferença). */
+  naPorta: PagamentoNaPorta[];
   /** null enquanto o dinheiro não foi contado. */
   liquidacao: Liquidacao | null;
 }
@@ -129,23 +136,15 @@ export function calcularAcerto(entrada: EntradaAcerto): ContaAcerto {
   const codigo = (saida: SaidaAcerto) => codigoDe.get(saida.pedidoId) ?? '';
 
   // ENT5: a saída que voltou conta a taxa, mas não os valores do pedido.
-  // Em rota (ou separada) no fechamento conta como entregue, com aviso.
+  // T18: sem "Voltou", a saída conta como entregue (o motoboy não marca "Entregue"; decisão 0007).
   const entregues = saidas.filter((s) => s.estado !== 'voltou');
-  const avisos: Aviso[] = entregues
-    .filter((s) => s.estado !== 'entregue')
-    .map((s) => ({
-      tipo: 'saida_em_rota',
-      saidaId: s.id,
-      codigo: codigo(s),
-      mensagem: `${codigo(s)} ainda ${s.estado === 'em_rota' ? 'em rota' : 'separada'}: contada como entregue.`,
-    }));
 
   // Um pedido com duas saídas do mesmo caixa não conta o Pix antecipado duas vezes.
-  const naPorta = new Map<string, PagamentoAcerto>();
+  const vigentes = new Map<string, { p: PagamentoAcerto; saida: SaidaAcerto }>();
   for (const saida of entregues) {
-    for (const p of pagamentosDaSaida(saida, entrada.pagamentos)) naPorta.set(p.id, p);
+    for (const p of pagamentosDaSaida(saida, entrada.pagamentos)) vigentes.set(p.id, { p, saida });
   }
-  const pagamentos = [...naPorta.values()];
+  const pagamentos = [...vigentes.values()].map((v) => v.p);
   const daForma = (forma: Forma) => pagamentos.filter((p) => p.forma === forma);
 
   const dinheiro = somarPor(daForma('dinheiro'), (p) => p.valor);
@@ -174,6 +173,16 @@ export function calcularAcerto(entrada: EntradaAcerto): ContaAcerto {
 
   // ACE8: a comanda perdida não trava o acerto; só aparece na lista.
   const papelFaltando = saidas.filter((s) => !s.papelConferido).map((s) => ({ saidaId: s.id, codigo: codigo(s) }));
+
+  const naPorta: PagamentoNaPorta[] = [...vigentes.values()]
+    .sort((a, b) => a.p.criadoEm.localeCompare(b.p.criadoEm))
+    .map(({ p, saida }) => ({
+      pagamentoId: p.id,
+      saidaId: saida.id,
+      codigo: codigo(saida),
+      forma: p.forma,
+      valor: p.valor,
+    }));
 
   // PAG7: cada transação da maquininha precisa casar com um pagamento de uma saída dele.
   const listaMaquininha = pagamentos
@@ -208,9 +217,30 @@ export function calcularAcerto(entrada: EntradaAcerto): ContaAcerto {
     porArea,
     papelFaltando,
     listaMaquininha,
-    avisos,
+    naPorta,
     liquidacao,
   };
+}
+
+/**
+ * Dica de diferença (F1, T20): aponta as comandas que explicariam a diferença do dinheiro contado.
+ * Sobra: cartão ou Pix na maquininha com o mesmo valor ("pagou em dinheiro?").
+ * Falta: dinheiro com o mesmo valor ("pagou no cartão ou Pix na máquina?").
+ * Só aponta; nunca troca nada sozinha.
+ */
+export function dicaDiferenca(conta: Pick<ContaAcerto, 'liquidacao' | 'naPorta'>): Dica[] {
+  const dif = conta.liquidacao?.dif ?? 0;
+  if (dif > 0) {
+    return conta.naPorta
+      .filter((p) => (p.forma === 'cartao' || p.forma === 'pix_maquininha') && p.valor === dif)
+      .map((p) => ({ ...p, pergunta: 'pagou em dinheiro?' }));
+  }
+  if (dif < 0) {
+    return conta.naPorta
+      .filter((p) => p.forma === 'dinheiro' && p.valor === -dif)
+      .map((p) => ({ ...p, pergunta: 'pagou no cartão ou Pix na máquina?' }));
+  }
+  return [];
 }
 
 /**

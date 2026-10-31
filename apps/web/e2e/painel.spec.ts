@@ -83,3 +83,28 @@ test('o Luan lança comanda de papel, troca a forma e marca o que voltou, pelo p
   await expect(coluna).toContainText('Devolve R$ 80,00');
   await expect(coluna).toContainText('Recebe R$ 52,00');
 });
+
+test('dica de diferença (T20): a sobra aponta o cartão que foi pago em dinheiro', async ({ page }) => {
+  await noiteComCaixaDoJoao();
+  await entrarComo(page, 'luan@mel.test');
+  await page.getByRole('button', { name: 'Lançar comanda de papel' }).click();
+  await lancar(page, '2672', '90', /^Pontal/, 'Cartão');
+  await page.keyboard.press('Escape');
+
+  // O motoboy devolve 80 de caixa + 90 em dinheiro: sobra 90 (a comanda dizia cartão).
+  await page.getByRole('region', { name: 'Coluna de João' }).getByRole('link').first().click();
+  const contado = page.locator('label', { hasText: 'Contado' }).getByRole('textbox');
+  await contado.fill('170');
+  await contado.press('Enter');
+  await expect(
+    page.getByText(/Diferença de R\$ 90,00: a 2672 \(Cartão, R\$ 90,00\) pagou em dinheiro\?/),
+  ).toBeVisible();
+
+  // A dica só aponta; o Luan troca a forma, e a sobra some.
+  await page.getByRole('button', { name: 'Trocou a forma' }).first().click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Trocou a forma' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Dinheiro' }).first().click();
+  await page.getByRole('button', { name: 'Salvar a forma' }).click();
+  await expect(page.getByText(/pagou em dinheiro\?/)).toHaveCount(0);
+  await expect(page.getByText('Pague R$ 40,00 do caixa dele.')).toBeVisible();
+});

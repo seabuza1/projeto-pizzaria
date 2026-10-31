@@ -1,9 +1,9 @@
 // Caixa do motoboy no painel do Luan: papéis, dinheiro contado, liquidação e "Confirmar acerto".
-import { formatarHora, lerValor, textoDaLiquidacao } from '@mel/dominio';
+import { dicaDiferenca, formatarHora, lerValor, textoDaLiquidacao } from '@mel/dominio';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { mostrarAviso } from '../../compartilhado/avisos';
-import { Botao, DoisToques, reais, Secao, SIGLA_FORMA } from '../../compartilhado/ui';
+import { Botao, DoisToques, NOME_FORMA, reais, Secao, SIGLA_FORMA } from '../../compartilhado/ui';
 import {
   acoes,
   contaDoCaixa,
@@ -185,6 +185,18 @@ export function AcertoLuan({
       </Secao>
 
       {l && !acerto && <p className="rounded-xl bg-amber-950 px-3 py-3 text-lg text-mel">{textoDaLiquidacao(l)}</p>}
+
+      {/* F1, T20: a dica só aponta; quem troca a forma é o Luan, se o motoboy confirmar. */}
+      {!acerto &&
+        dicaDiferenca(conta).map((d) => (
+          <div key={d.pagamentoId} className="flex items-center justify-between gap-2 rounded-xl bg-cartao px-3 py-2">
+            <span>
+              Diferença de {reais(Math.abs(l?.dif ?? 0))}: a <span className="numero">{d.codigo}</span> (
+              {NOME_FORMA[d.forma]}, {reais(d.valor)}) {d.pergunta}
+            </span>
+            <Botao onClick={() => setAberta(d.saidaId)}>Trocou a forma</Botao>
+          </div>
+        ))}
 
       <ContaDetalhada conta={conta} />
 
