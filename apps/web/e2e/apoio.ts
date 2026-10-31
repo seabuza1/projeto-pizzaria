@@ -1,6 +1,6 @@
 // Apoio dos testes de ponta a ponta: contas do seed.sql e operações pela API, como o app faria.
 import { execFileSync } from 'node:child_process';
-import { randomUUID } from 'node:crypto';
+import { createHmac, randomUUID } from 'node:crypto';
 import { expect, type Page } from '@playwright/test';
 
 const status = JSON.parse(
@@ -81,6 +81,29 @@ export async function entrarComo(page: Page, email: string) {
   await page.getByPlaceholder('E-mail').fill(email);
   await page.getByPlaceholder('Senha').fill(SENHA);
   await page.getByRole('button', { name: 'Entrar' }).click();
+}
+
+// Segredo TOTP de teste do seed.sql (admin e gerente entram com MFA).
+const SEGREDO_TOTP = 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP';
+
+/** Código do app autenticador (RFC 6238: SHA-1, 30 s, 6 dígitos). */
+function codigoTotp(agora = Date.now()): string {
+  const alfabeto = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  const bits = [...SEGREDO_TOTP].map((ch) => alfabeto.indexOf(ch).toString(2).padStart(5, '0')).join('');
+  const bytes: number[] = [];
+  for (let i = 0; i + 8 <= bits.length; i += 8) bytes.push(Number.parseInt(bits.slice(i, i + 8), 2));
+  const contador = Buffer.alloc(8);
+  contador.writeBigUInt64BE(BigInt(Math.floor(agora / 30_000)));
+  const h = createHmac('sha1', Buffer.from(bytes)).update(contador).digest();
+  const o = (h[h.length - 1] ?? 0) & 0xf;
+  return String((h.readUInt32BE(o) & 0x7fffffff) % 1_000_000).padStart(6, '0');
+}
+
+/** Admin e gerente: senha e o código do autenticador. */
+export async function entrarComMfa(page: Page, email: string) {
+  await entrarComo(page, email);
+  await page.getByPlaceholder('000000').fill(codigoTotp());
+  await page.getByRole('button', { name: 'Confirmar' }).click();
 }
 
 export async function lancar(page: Page, codigo: string, total: string, area: RegExp, forma: string) {

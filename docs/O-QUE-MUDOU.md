@@ -24,3 +24,5 @@ Escrito para o Luan e a gerente. Uma linha por mudança que aparece na tela, com
 | 31/10/2026 | No caixa do motoboy: "Comanda sem saída" com "Era dele", para a comanda que ele trouxe e ninguém despachou; e "↑ Antes" / "↓ Depois" para corrigir a ordem de chegada até o primeiro acerto. | Não. |
 | 31/10/2026 | Coluna PIX mostra também os Pix dos pedidos que ainda não saíram. Desmarcar o "caiu" pede o motivo. | Luan: escrever o motivo ao desmarcar. |
 | 31/10/2026 | "Fechar a noite" mostra o que ficou pendente (pedido sem saída, caixa sem acerto, Pix sem "caiu") antes de fechar. Se a noite de ontem ficou aberta, o painel avisa e pede para fechá-la antes de abrir a de hoje. | Luan: resolver os pendentes ou fechar mesmo assim. |
+| 31/10/2026 | Tela "Motoboys" (gerente e admin): cadastrar, corrigir o nome e marcar ativo ou inativo. Quem fica inativo some da lista "Chegou" do painel. | Gerente: cadastrar os motoboys antes da primeira noite. |
+| 31/10/2026 | "Noites antigas" no painel: a folha, o resumo e o CSV de cada noite fechada, só para leitura. Precisa de internet. | Não. |

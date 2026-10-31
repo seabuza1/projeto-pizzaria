@@ -17,13 +17,14 @@ import {
   prontosParaSair,
 } from '@mel/dominio';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { useSyncExternalStore } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import { v7 as uuidv7 } from 'uuid';
 import { mostrarAviso } from '../compartilhado/avisos';
 import {
   type Acerto,
   BancoLocal,
   type Caixa,
+  type Noite,
   type Pagamento,
   type Pedido,
   type Perfil,
@@ -483,6 +484,53 @@ export async function areaSugerida(codigo: string): Promise<string | null> {
   } catch {
     return null;
   }
+}
+
+/** Noites antigas (F1): só leitura, direto do servidor. Sem internet, a tela diz que precisa dela. */
+export function useNoitesFechadas(): Noite[] | 'sem_internet' | undefined {
+  const [noites, setNoites] = useState<Noite[] | 'sem_internet'>();
+  useEffect(() => {
+    supabase
+      .from('noites')
+      .select('*')
+      .not('fechada_em', 'is', null)
+      .order('data', { ascending: false })
+      .limit(90)
+      .then(({ data, error }) => setNoites(error ? 'sem_internet' : data));
+  }, []);
+  return noites;
+}
+
+export function useNoiteAntiga(
+  noiteId: string | undefined,
+): { noite: Noite; dados: DadosNoite } | 'sem_internet' | undefined {
+  const [estado, setEstado] = useState<{ noite: Noite; dados: DadosNoite } | 'sem_internet'>();
+  useEffect(() => {
+    if (!noiteId) return;
+    void (async () => {
+      const [noite, caixas, pedidos, saidas, pagamentos, acertos] = await Promise.all([
+        supabase.from('noites').select('*').eq('id', noiteId).single(),
+        supabase.from('caixas').select('*').eq('noite_id', noiteId).order('ordem_chegada'),
+        supabase.from('pedidos').select('*').eq('noite_id', noiteId),
+        supabase.from('saidas').select('*').eq('noite_id', noiteId).order('criado_em'),
+        supabase.from('pagamentos').select('*').eq('noite_id', noiteId),
+        supabase.from('acertos').select('*').eq('noite_id', noiteId).is('reaberto_em', null),
+      ]);
+      const erro = [noite, caixas, pedidos, saidas, pagamentos, acertos].some((r) => r.error);
+      if (erro || !noite.data) return setEstado('sem_internet');
+      setEstado({
+        noite: noite.data,
+        dados: {
+          caixas: caixas.data ?? [],
+          pedidos: pedidos.data ?? [],
+          saidas: saidas.data ?? [],
+          pagamentos: pagamentos.data ?? [],
+          acertos: acertos.data ?? [],
+        },
+      });
+    })();
+  }, [noiteId]);
+  return estado;
 }
 
 /** Recusas recentes do servidor, para a tela mostrar o motivo. */

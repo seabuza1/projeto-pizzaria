@@ -2,6 +2,7 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { donoDaOperacao } from '@mel/db';
 import { describe, expect, it } from 'vitest';
 
 const FUNCIONALIDADES = fileURLToPath(new URL('.', import.meta.url));
@@ -71,5 +72,12 @@ describe('módulos removíveis', () => {
       }
     }
     expect(violacoes).toEqual([]);
+  });
+
+  it('tudo tem dono: cada operação é do núcleo ou de um módulo da lista', () => {
+    // O primeiro teste garante: pasta = nome do módulo = item da lista.
+    const nomes = new Set(pastas);
+    const semDono = Object.entries(donoDaOperacao).filter(([, dono]) => dono !== 'nucleo' && !nomes.has(dono));
+    expect(semDono).toEqual([]);
   });
 });

@@ -11,7 +11,10 @@ import { Despacho } from './Despacho';
 import { FecharNoite } from './FecharNoite';
 import { Folha } from './Folha';
 import { LancarComanda } from './LancarComanda';
+import { NoitesAntigas } from './NoitesAntigas';
 import { Resumo } from './Resumo';
+
+const linkNoites = 'flex min-h-12 items-center justify-center rounded-xl border border-borda bg-cartao font-semibold';
 
 function Topo({ titulo }: { titulo: string }) {
   return (
@@ -37,25 +40,38 @@ export function Expedicao({ perfil }: { perfil: Perfil }) {
   const hoje = dataDaNoite(new Date(), cfg?.fuso);
   const aberta = noite && !noite.fechada_em ? noite : null;
 
+  const noites = <NoitesAntigas nomeMotoboy={nomeMotoboy} />;
+
   if (!aberta) {
     return (
       <>
         <Topo titulo="Painel" />
-        <div className="flex flex-col gap-3 p-4">
-          {noite && <p className="text-apagado">A noite de {formatarData(noite.data)} foi fechada.</p>}
-          {noite?.data === hoje ? (
-            perfil.papeis.includes('admin') && (
-              <DoisToques rotulo="Reabrir a noite" aoConfirmar={() => void acoes.reabrirNoite(noite.id)} />
-            )
-          ) : (
-            <Botao variante="principal" className="min-h-14 text-lg" onClick={() => void acoes.abrirNoite()}>
-              Abrir a noite de {formatarData(hoje)}
-            </Botao>
-          )}
-          <Botao variante="fantasma" onClick={() => void sair(true)}>
-            Sair
-          </Botao>
-        </div>
+        <Routes>
+          <Route path="noites/*" element={noites} />
+          <Route
+            path="*"
+            element={
+              <div className="flex flex-col gap-3 p-4">
+                {noite && <p className="text-apagado">A noite de {formatarData(noite.data)} foi fechada.</p>}
+                {noite?.data === hoje ? (
+                  perfil.papeis.includes('admin') && (
+                    <DoisToques rotulo="Reabrir a noite" aoConfirmar={() => void acoes.reabrirNoite(noite.id)} />
+                  )
+                ) : (
+                  <Botao variante="principal" className="min-h-14 text-lg" onClick={() => void acoes.abrirNoite()}>
+                    Abrir a noite de {formatarData(hoje)}
+                  </Botao>
+                )}
+                <Link to="noites" className={linkNoites}>
+                  Noites antigas
+                </Link>
+                <Botao variante="fantasma" onClick={() => void sair(true)}>
+                  Sair
+                </Botao>
+              </div>
+            }
+          />
+        </Routes>
       </>
     );
   }
@@ -120,6 +136,9 @@ export function Expedicao({ perfil }: { perfil: Perfil }) {
                 >
                   Resumo da noite
                 </Link>
+                <Link to="noites" className={`${linkNoites} col-span-2 sm:col-span-1`}>
+                  Noites antigas
+                </Link>
                 <Botao onClick={() => setFechando(true)}>Fechar a noite</Botao>
               </div>
               <FolhaQueSobe
@@ -147,6 +166,7 @@ export function Expedicao({ perfil }: { perfil: Perfil }) {
           element={<AcertoLuan dados={dados} perfis={perfis} perfil={perfil} nomeMotoboy={nomeMotoboy} />}
         />
         <Route path="resumo" element={<Resumo noite={aberta} dados={dados} nomeMotoboy={nomeMotoboy} />} />
+        <Route path="noites/*" element={noites} />
         <Route path="*" element={<Navigate to="/expedicao" replace />} />
       </Routes>
     </>

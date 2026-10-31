@@ -10,10 +10,12 @@ export function Resumo({
   noite,
   dados,
   nomeMotoboy,
+  voltar = '← Folha',
 }: {
   noite: Noite;
   dados: DadosNoite;
   nomeMotoboy: (id: string) => string;
+  voltar?: string;
 }) {
   const areas = useAreas(true);
   const contas = useMemo(() => dados.caixas.map((c) => ({ caixa: c, conta: contaDoCaixa(c, dados) })), [dados]);
@@ -41,7 +43,7 @@ export function Resumo({
   return (
     <div className="flex flex-col gap-3 p-3">
       <Link to=".." relative="path" className="min-h-12 py-3 text-apagado">
-        ← Folha
+        {voltar}
       </Link>
       {r.pendentes > 0 && (
         <p className="rounded-xl bg-amber-950 px-3 py-2 text-aviso">
