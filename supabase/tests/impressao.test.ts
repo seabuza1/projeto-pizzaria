@@ -68,6 +68,19 @@ describe('fila de impressão', () => {
   });
 });
 
+describe('o atendimento só cuida da comanda', () => {
+  it('não pede nem vê o recibo do acerto e a folha da noite (dinheiro dos motoboys)', async () => {
+    const recibo = { ...comanda(), tipo: 'recibo_acerto' as const, conteudo: 'ACERTO\n=\n' };
+    const r = await atendimento.op('pedir_impressao', recibo);
+    expect(r.codigo).toBe('sem_permissao');
+    aplicada(await luan.op('pedir_impressao', recibo));
+    aplicada(await luan.op('pedir_impressao', { ...comanda(), tipo: 'folha_noite' }));
+    aplicada(await luan.op('pedir_impressao', comanda()));
+    const { data } = await atendimento.db.from('impressoes').select('tipo');
+    expect(data).toEqual([{ tipo: 'comanda' }]);
+  });
+});
+
 describe('batimento do agente', () => {
   it('o agente diz que está vivo; a equipe do balcão vê; outra conta não bate pelo agente', async () => {
     const { error } = await agente.db.rpc('batimento_agente', {
