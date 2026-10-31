@@ -1,39 +1,34 @@
-// F1, "Pronto quando": o painel mostra a comanda nova em poucos segundos; depois do acerto confirmado,
-// o motoboy não edita o caixa nem as saídas.
+// F1, "Pronto quando": o painel atualiza em poucos segundos; depois do acerto confirmado, o caixa trava.
 import { expect, test } from '@playwright/test';
 import { bancoLimpo, entrarComo, lancar, noiteComCaixaDoJoao } from './apoio';
 
-test('noite completa: Luan abre, João lança, Pix cai, Luan confere e confirma o acerto', async ({ browser }) => {
+test('noite completa pelo painel: abre, escolhe o João, lança, Pix cai, confere e confirma', async ({ browser }) => {
   await bancoLimpo();
+  // Dois aparelhos da expedição: o que um faz aparece no outro em poucos segundos (F1, tempo real).
+  const balcao = await (await browser.newContext({ viewport: { width: 412, height: 915 } })).newPage();
   const celularLuan = await (await browser.newContext({ viewport: { width: 412, height: 915 } })).newPage();
-  const celularJoao = await (await browser.newContext({ viewport: { width: 412, height: 915 } })).newPage();
 
-  // Luan abre a noite e o caixa do João, que chegou primeiro.
   await entrarComo(celularLuan, 'luan@mel.test');
   await celularLuan.getByRole('button', { name: /^Abrir a noite de/ }).click();
   await celularLuan.getByRole('button', { name: '+ João' }).click();
-  await expect(celularLuan.getByText('Devolve R$ 80,00')).toBeVisible();
+  const coluna = celularLuan.getByRole('region', { name: 'Coluna de João' });
+  await expect(coluna).toContainText('Devolve R$ 80,00');
 
-  // João lança duas comandas.
-  await entrarComo(celularJoao, 'joao@mel.test');
-  await lancar(celularJoao, '3557', '113', /^Barra/, 'Dinheiro');
-  await lancar(celularJoao, '0017', '60', /^Aragarças/, 'Pix antecipado');
-  await expect(celularJoao.getByText('Pix não confirmado · cobrar R$ 60,00')).toBeVisible();
-  await celularJoao.getByRole('button', { name: 'Entregue', exact: true }).first().click();
+  await entrarComo(balcao, 'luan@mel.test');
+  await balcao.getByRole('button', { name: 'Lançar comanda de papel' }).click();
+  await lancar(balcao, '3557', '113', /^Barra/, 'Dinheiro');
+  await lancar(balcao, '0017', '60', /^Aragarças/, 'Pix antecipado');
 
-  // Em poucos segundos, as comandas aparecem na folha do Luan.
-  const folha = celularLuan.getByRole('region', { name: 'Coluna de João' });
-  await expect(folha).toContainText('3557', { timeout: 10_000 });
-  await expect(folha).toContainText('0017', { timeout: 10_000 });
-  await expect(folha).toContainText('Devolve R$ 193,00');
+  await expect(coluna).toContainText('3557', { timeout: 10_000 });
+  await expect(coluna).toContainText('0017', { timeout: 10_000 });
+  await expect(coluna).toContainText('Devolve R$ 193,00');
 
-  // Coluna PIX: tocar marca "caiu"; o João vê "Pix confirmado".
+  // Coluna PIX: tocar marca "caiu" (PAG5).
   await celularLuan.getByRole('button', { name: /0017.*conferir/ }).click();
   await expect(celularLuan.getByRole('button', { name: /0017.*caiu/ })).toBeVisible();
-  await expect(celularJoao.getByText('Pix confirmado')).toBeVisible({ timeout: 10_000 });
 
   // Caixa do João: papéis, dinheiro contado e liquidação.
-  await folha.getByRole('link').first().click();
+  await coluna.getByRole('link').first().click();
   await expect(celularLuan.getByText('Papéis (2 faltando)')).toBeVisible();
   // As que faltam ficam no topo: marca a primeira sem conferir, duas vezes.
   await celularLuan.getByRole('checkbox', { checked: false }).first().click();
@@ -51,15 +46,12 @@ test('noite completa: Luan abre, João lança, Pix cai, Luan confere e confirma 
   await expect(celularLuan.getByText(/^Confirmado por Luan às \d\d:\d\d$/)).toBeVisible();
   await expect(celularLuan.getByText('● Salvo')).toBeVisible({ timeout: 10_000 });
 
-  // O João vê o acerto confirmado e não lança mais nada.
-  await celularJoao.getByRole('link', { name: 'Acerto' }).click();
-  await expect(celularJoao.getByText(/^Confirmado por Luan às/)).toBeVisible({ timeout: 10_000 });
-  await celularJoao.getByRole('link', { name: 'Noite' }).click();
-  await expect(celularJoao.getByLabel('Código', { exact: true })).toHaveCount(0);
-  await expect(celularJoao.getByRole('button', { name: 'Entregue', exact: true })).toHaveCount(0);
+  // Depois do acerto, o caixa trava: sem lançar para ele e sem menu nos códigos (ACE9).
+  await celularLuan.getByRole('link', { name: '← Folha' }).click();
+  await expect(coluna).toContainText('Confirmado');
+  await expect(coluna.getByRole('button', { name: /^3557/ })).toBeDisabled();
 
   // Resumo da noite.
-  await celularLuan.getByRole('link', { name: '← Folha' }).click();
   await celularLuan.getByRole('link', { name: 'Resumo da noite' }).click();
   await expect(celularLuan.locator('section', { hasText: 'Motoboys' })).toContainText('R$ 47,00');
 });
