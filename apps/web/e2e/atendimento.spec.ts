@@ -65,6 +65,15 @@ test('a 3557 (P2): telefone, meio a meio, refrigerante, resumo, autorizado e o L
   );
   expect(cliente).toEqual({ nome: 'Maria', local_referencia: 'hospital' });
 
+  // A comanda foi para a fila de impressão ao autorizar (F2, 2c).
+  const comandas = () => ler<{ tipo: string; conteudo: string }[]>(luan, 'impressoes?select=tipo,conteudo');
+  await expect.poll(async () => (await comandas()).length, { timeout: 10_000 }).toBe(1);
+  const [comanda] = await comandas();
+  expect(comanda?.tipo).toBe('comanda');
+  expect(comanda?.conteudo).toContain('^^^^3557\n');
+  expect(comanda?.conteudo).toContain('|Ref.: hospital');
+  expect(comanda?.conteudo).toContain('|Maria');
+
   // O Luan vê o pedido para sair e despacha.
   const celular = await (await novoAparelho(browser)).newPage();
   await entrarComo(celular, 'luan@mel.test');

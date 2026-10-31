@@ -62,6 +62,8 @@ export function AcertoLuan({
 
   async function confirmar() {
     await acoes.confirmarAcerto(caixa?.id ?? '', conta);
+    // O recibo imprime na confirmação, com espaço para as duas assinaturas.
+    void acoes.imprimirRecibo(caixa?.id ?? '');
     mostrarAviso(`Acerto de ${nomeMotoboy(caixa?.motoboy_id ?? '')} confirmado`);
   }
 
@@ -217,6 +219,16 @@ export function AcertoLuan({
       )}
       {!l && !acerto && <p className="text-center text-sm text-apagado">Informe o dinheiro contado para confirmar.</p>}
 
+      {acerto && (
+        <Botao
+          onClick={() => {
+            void acoes.imprimirRecibo(caixa.id);
+            mostrarAviso('Recibo na impressora');
+          }}
+        >
+          Reimprimir recibo
+        </Botao>
+      )}
       {acerto && perfil.papeis.includes('admin') && (
         <Secao titulo="Reabrir (admin)">
           <input

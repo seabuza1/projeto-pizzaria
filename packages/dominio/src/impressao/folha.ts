@@ -48,9 +48,9 @@ function linhaDoCodigo(l: LinhaDaFolha): string {
   const formas = l.formas.map((f) => SIGLA_FORMA[f]).join('+');
   // cp860 (impressora térmica) não tem → nem •: vai em ASCII.
   const troco = l.trocoPix > 0 ? ` ->${v(l.trocoPix)}` : '';
-  const rota = l.estado === 'em_rota' || l.estado === 'separada' ? ' (em rota)' : '';
+  // T18: sem "Voltou", a saída conta como entregue (decisão 0007); não há "em rota" na folha.
   const papel = l.papelConferido ? '' : ' *';
-  return `|${codigo}${formas}${troco}${rota}${papel}`;
+  return `|${codigo}${formas}${troco}${papel}`;
 }
 
 export function folhaDaNoite(d: DadosFolha): string {

@@ -246,7 +246,9 @@ export function Editor({
     const p = problema();
     if (p) return setErro(p);
     setErro('');
-    await salvar('autorizar');
+    const id = await salvar('autorizar');
+    // F2, 2c: a comanda sai ao autorizar (e de novo, com "ALTERADO", ao salvar uma alteração).
+    if (id) void acoes.imprimirComanda(id);
     // O último local fica no cliente: o próximo pedido já vem com ele (F2, 2d).
     if (telefone) {
       void acoes.salvarCliente({

@@ -14,12 +14,22 @@ import {
   type Cardapio,
   type ContaAcerto,
   calcularAcerto,
+  centavos,
+  comandaDoPedido,
+  type DadosFolha,
+  type DadosRecibo,
+  dataDaNoite,
   type Forma,
+  FUSO_PADRAO,
+  folhaDaNoite,
+  formatarHora,
   type ItemPedido,
   type LinhaDoPedido,
   pagamentosDaSaida,
   pendenciasDaNoite,
   prontosParaSair,
+  reciboDoAcerto,
+  resumirNoite,
 } from '@mel/dominio';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useEffect, useState, useSyncExternalStore } from 'react';
@@ -394,7 +404,11 @@ export interface DadosNoite {
 }
 
 export function useDadosNoite(noiteId: string | undefined): DadosNoite | undefined {
-  return useLiveQuery(async () => {
+  return useLiveQuery(() => dadosDaNoite(noiteId), [noiteId]);
+}
+
+async function dadosDaNoite(noiteId: string | undefined): Promise<DadosNoite> {
+  {
     if (!noiteId) return { caixas: [], pedidos: [], itens: [], saidas: [], pagamentos: [], acertos: [] };
     const [caixas, pedidos, saidas, pagamentos, acertos, itens] = await Promise.all([
       banco.caixas.where('noite_id').equals(noiteId).toArray(),
@@ -412,7 +426,7 @@ export function useDadosNoite(noiteId: string | undefined): DadosNoite | undefin
       pagamentos,
       acertos: acertos.filter((a) => !a.reaberto_em),
     };
-  }, [noiteId]);
+  }
 }
 
 export const useImpressoes = (noiteId: string | undefined) =>
@@ -556,23 +570,53 @@ export const acoes = {
     executar('marcar_pix', { pagamento_id: pagamentoId, confirmado, ...(motivo ? { motivo } : {}) }),
   fecharNoite: (noiteId: string) => executar('fechar_noite', { noite_id: noiteId }),
   reabrirNoite: (noiteId: string) => executar('reabrir_noite', { noite_id: noiteId }),
+  /** Pede a impressão. Sem internet, manda direto ao agente do balcão; o registro sobe depois pela fila. */
   async pedirImpressao(p: {
-    tipo: 'recibo_acerto' | 'folha_noite';
+    tipo: 'recibo_acerto' | 'folha_noite' | 'comanda';
     conteudo: string;
     noiteId?: string;
     caixaId?: string;
-    impressa?: boolean;
+    pedidoId?: string;
   }) {
     const impressaoId = novoId();
+    const ids = {
+      ...(p.noiteId ? { noite_id: p.noiteId } : {}),
+      ...(p.caixaId ? { caixa_id: p.caixaId } : {}),
+      ...(p.pedidoId ? { pedido_id: p.pedidoId } : {}),
+    };
+    const impressa = await imprimirNoAgenteLocal({ id: impressaoId, tipo: p.tipo, conteudo: p.conteudo, ...ids });
     await executar('pedir_impressao', {
       impressao_id: impressaoId,
       tipo: p.tipo,
       conteudo: p.conteudo,
-      ...(p.noiteId ? { noite_id: p.noiteId } : {}),
-      ...(p.caixaId ? { caixa_id: p.caixaId } : {}),
-      ...(p.impressa ? { impressa: true } : {}),
+      ...ids,
+      ...(impressa ? { impressa: true } : {}),
     });
     return impressaoId;
+  },
+  /** F2, 2c: a comanda do pedido autorizado (e de novo, com "ALTERADO", depois de alterar). Reimprimir é igual. */
+  async imprimirComanda(pedidoId: string) {
+    const conteudo = await comandaDoPedidoLocal(pedidoId);
+    if (!conteudo) return null;
+    const pedido = await banco.pedidos.get(pedidoId);
+    return acoes.pedirImpressao({
+      tipo: 'comanda',
+      conteudo,
+      pedidoId,
+      ...(pedido ? { noiteId: pedido.noite_id } : {}),
+    });
+  },
+  /** Recibo do acerto, com espaço para as duas assinaturas (MVP.md). */
+  async imprimirRecibo(caixaId: string) {
+    const caixa = await banco.caixas.get(caixaId);
+    if (!caixa) return null;
+    const conteudo = reciboDoAcerto(await dadosDoRecibo(caixa));
+    return acoes.pedirImpressao({ tipo: 'recibo_acerto', conteudo, noiteId: caixa.noite_id, caixaId });
+  },
+  /** Folha da noite, só por botão, como reserva (MVP.md). */
+  async imprimirFolha(noiteId: string) {
+    const conteudo = folhaDaNoite(await dadosDaFolha(noiteId));
+    return acoes.pedirImpressao({ tipo: 'folha_noite', conteudo, noiteId });
   },
   salvarArea: (a: { id?: string; nome: string; cidade: string; taxa: number; ativa: boolean; ordem?: number }) =>
     executar('salvar_area', {
@@ -753,4 +797,135 @@ export function pixDaNoite(dados: DadosNoite): { pagamento: Pagamento; pedido: P
     const vigentes = saida ? pagamentosVigentes(saida, dados.pagamentos) : reais.length > 0 ? reais : doPedido;
     return vigentes.filter((p) => p.forma === 'pix_antecipado').map((pagamento) => ({ pagamento, pedido }));
   });
+}
+
+// Impressão (etapa 8) ----------------------------------------------------------------
+
+/** Agente de impressão no computador do balcão (apps/agente), para quando a internet cai. */
+const AGENTE_LOCAL = 'http://localhost:9180/imprimir';
+
+async function imprimirNoAgenteLocal(trabalho: Record<string, string>): Promise<boolean> {
+  if (typeof navigator === 'undefined' || navigator.onLine) return false;
+  try {
+    const r = await fetch(AGENTE_LOCAL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(trabalho),
+      signal: AbortSignal.timeout(3000),
+      // Chrome: acesso à rede local (o agente libera no preflight só para a origem do app).
+      targetAddressSpace: 'loopback',
+    } as RequestInit);
+    return r.ok;
+  } catch {
+    return false;
+  }
+}
+
+async function fusoDaPizzaria() {
+  return (await banco.config.toCollection().first())?.fuso ?? FUSO_PADRAO;
+}
+
+/** A comanda montada com o que está no aparelho (o pedido, os itens e os pagamentos previstos). */
+async function comandaDoPedidoLocal(pedidoId: string): Promise<string | null> {
+  const p = await banco.pedidos.get(pedidoId);
+  if (!p?.telefone) return null;
+  const itens = (await banco.pedido_itens.where('pedido_id').equals(pedidoId).toArray())
+    .filter((i) => !i.anulado_em)
+    .sort((a, b) => a.ordem - b.ordem);
+  const validos = (await banco.pagamentos.where('pedido_id').equals(pedidoId).toArray()).filter((x) => !x.anulado_em);
+  const previstos = validos.filter((x) => !x.real);
+  const pagamentos = previstos.length > 0 ? previstos : validos;
+  const pix = pagamentos.filter((x) => x.forma === 'pix_antecipado');
+  const area = p.area_id ? await banco.areas.get(p.area_id) : undefined;
+  const cliente = await banco.clientes.where('telefone').equals(p.telefone).first();
+  const noite = await banco.noites.get(p.noite_id);
+  const fuso = await fusoDaPizzaria();
+  return comandaDoPedido({
+    codigo: p.codigo,
+    promocao: p.promocao,
+    alterado: p.alterado,
+    linhas: itens.map((i) => ({
+      nome: i.nome,
+      detalhes: i.detalhes,
+      quantidade: i.quantidade,
+      desconto: centavos(i.desconto),
+      total: centavos(i.total),
+    })),
+    tipo: p.tipo === 'retirada' ? 'retirada' : 'entrega',
+    area: area?.nome ?? null,
+    endereco: p.endereco_texto,
+    referencia: p.endereco_referencia,
+    link: p.endereco_link,
+    telefone: p.telefone,
+    cliente: cliente?.nome ?? null,
+    total: centavos(p.total),
+    pagamentos: pagamentos.map((x) => ({ forma: x.forma, valor: centavos(x.valor) })),
+    trocoPara: p.troco_para === null ? null : centavos(p.troco_para),
+    // PAG5: "PIX PAGO" se já caiu na hora da impressão; senão "PIX: CONFERIR".
+    pixPago: pix.length === 0 ? null : pix.every((x) => x.pix_confirmado),
+    data: noite?.data ?? dataDaNoite(new Date(), fuso),
+    hora: formatarHora(new Date().toISOString(), fuso),
+  });
+}
+
+async function dadosDoRecibo(caixa: Caixa): Promise<DadosRecibo> {
+  const dados = await dadosDaNoite(caixa.noite_id);
+  const conta = contaDoCaixa(caixa, dados);
+  const acerto = dados.acertos.find((a) => a.caixa_id === caixa.id);
+  const noite = await banco.noites.get(caixa.noite_id);
+  const fuso = await fusoDaPizzaria();
+  const areas = new Map((await banco.areas.toArray()).map((a) => [a.id, a.nome]));
+  const pedidos = new Map(dados.pedidos.map((p) => [p.id, p]));
+  const saidas = dados.saidas.filter((s) => s.caixa_id === caixa.id && !s.cancelada_em);
+  const pix = pixDaNoite(dados).filter(({ pedido }) => saidas.some((s) => s.pedido_id === pedido.id));
+  return {
+    data: noite?.data ?? '',
+    motoboy: (await banco.motoboys.get(caixa.motoboy_id))?.nome ?? '?',
+    ordem: caixa.ordem_chegada,
+    confirmadoPor: (acerto && (await banco.perfis.get(acerto.confirmado_por))?.nome) ?? '?',
+    hora: formatarHora(acerto?.confirmado_em ?? new Date().toISOString(), fuso),
+    conta,
+    nomeArea: (id) => areas.get(id) ?? '?',
+    voltaram: saidas.filter((s) => s.estado === 'voltou').map((s) => pedidos.get(s.pedido_id)?.codigo ?? '?'),
+    pix: pix.map(({ pagamento, pedido }) => ({ codigo: pedido.codigo, confirmado: pagamento.pix_confirmado })),
+  };
+}
+
+async function dadosDaFolha(noiteId: string): Promise<DadosFolha> {
+  const dados = await dadosDaNoite(noiteId);
+  const noite = await banco.noites.get(noiteId);
+  const fuso = await fusoDaPizzaria();
+  const pedidos = new Map(dados.pedidos.map((p) => [p.id, p]));
+  const contas = dados.caixas.map((c) => ({ caixa: c, conta: contaDoCaixa(c, dados) }));
+  const colunas = await Promise.all(
+    contas.map(async ({ caixa, conta }) => ({
+      ordem: caixa.ordem_chegada,
+      motoboy: (await banco.motoboys.get(caixa.motoboy_id))?.nome ?? '?',
+      linhas: dados.saidas
+        .filter((s) => s.caixa_id === caixa.id && !s.cancelada_em)
+        .map((s) => {
+          const vigentes = pagamentosVigentes(s, dados.pagamentos);
+          return {
+            codigo: pedidos.get(s.pedido_id)?.codigo ?? '?',
+            formas: vigentes.map((p) => p.forma),
+            estado: s.estado,
+            trocoPix: centavos(vigentes.reduce((t, p) => t + p.troco_pix, 0)),
+            papelConferido: s.papel_conferido,
+          };
+        }),
+      conta,
+      confirmado: dados.acertos.some((a) => a.caixa_id === caixa.id),
+    })),
+  );
+  return {
+    data: noite?.data ?? '',
+    hora: formatarHora(new Date().toISOString(), fuso),
+    colunas,
+    pix: pixDaNoite(dados).map(({ pagamento, pedido }) => ({
+      codigo: pedido.codigo,
+      valor: centavos(pagamento.valor),
+      confirmado: pagamento.pix_confirmado,
+    })),
+    resumo: resumirNoite(contas.map((c) => c.conta)),
+  };
 }

@@ -3,8 +3,9 @@ import { agruparPorCidade, noiteCsv, resumirNoite } from '@mel/dominio';
 import { useMemo } from 'react';
 import { Link } from 'react-router';
 import { baixarArquivo } from '../../compartilhado/arquivo';
+import { mostrarAviso } from '../../compartilhado/avisos';
 import { Botao, Linha, Secao } from '../../compartilhado/ui';
-import { contaDoCaixa, type DadosNoite, type Noite, useAreas } from '../../data/repo';
+import { acoes, contaDoCaixa, type DadosNoite, type Noite, useAreas } from '../../data/repo';
 
 export function Resumo({
   noite,
@@ -78,6 +79,18 @@ export function Resumo({
         ))}
       </Secao>
       <Botao onClick={exportar}>Exportar a noite (CSV)</Botao>
+      {/* A folha impressa é só reserva, por botão (MVP.md). */}
+      {!noite.fechada_em && (
+        <Botao
+          variante="fantasma"
+          onClick={() => {
+            void acoes.imprimirFolha(noite.id);
+            mostrarAviso('Folha na impressora');
+          }}
+        >
+          Imprimir a folha
+        </Botao>
+      )}
     </div>
   );
 }

@@ -1,6 +1,15 @@
 // F1, "Pronto quando": o painel atualiza em poucos segundos; depois do acerto confirmado, o caixa trava.
 import { expect, test } from '@playwright/test';
-import { bancoLimpo, entrarComo, fecharAparelhos, lancar, noiteComCaixaDoJoao, novoAparelho } from './apoio';
+import {
+  bancoLimpo,
+  entrarComo,
+  fecharAparelhos,
+  lancar,
+  ler,
+  noiteComCaixaDoJoao,
+  novoAparelho,
+  token,
+} from './apoio';
 
 test.afterEach(fecharAparelhos);
 
@@ -56,6 +65,17 @@ test('noite completa pelo painel: abre, escolhe o João, lança, Pix cai, confer
   // Resumo da noite.
   await celularLuan.getByRole('link', { name: 'Resumo da noite' }).click();
   await expect(celularLuan.locator('section', { hasText: 'Motoboys' })).toContainText('R$ 47,00');
+
+  // O recibo saiu na confirmação; a folha, só pelo botão (MVP.md).
+  await celularLuan.getByRole('button', { name: 'Imprimir a folha' }).click();
+  const luan = await token('luan@mel.test');
+  const fila = () => ler<{ tipo: string; conteudo: string }[]>(luan, 'impressoes?select=tipo,conteudo&order=criado_em');
+  await expect
+    .poll(async () => (await fila()).map((i) => i.tipo), { timeout: 10_000 })
+    .toEqual(['recibo_acerto', 'folha_noite']);
+  const [recibo, folha] = await fila();
+  expect(recibo?.conteudo).toContain('Motoboy: João (1)');
+  expect(folha?.conteudo).toContain('FOLHA DA NOITE');
 });
 
 test('o Luan lança comanda de papel, troca a forma e marca o que voltou, pelo painel', async ({ page }) => {

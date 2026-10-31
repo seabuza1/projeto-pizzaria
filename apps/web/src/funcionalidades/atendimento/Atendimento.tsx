@@ -94,6 +94,16 @@ export function Atendimento() {
                   {p.alterado && ' · alterado'}
                 </span>
               </button>
+              {/* ERROS-PREVISTOS: comanda ilegível, rasgada ou perdida antes de sair. */}
+              <Botao
+                variante="fantasma"
+                onClick={() => {
+                  void acoes.imprimirComanda(p.id);
+                  mostrarAviso(`Comanda ${p.codigo} na impressora`);
+                }}
+              >
+                Reimprimir
+              </Botao>
               {/* F2, 2e: "Avisar" abre a conversa com a mensagem pronta; "Retirado" encerra. */}
               {p.tipo === 'retirada' && p.telefone && (
                 <div className="grid grid-cols-2 gap-2">

@@ -50,7 +50,7 @@ export async function bancoLimpo() {
     cwd: new URL('../../..', import.meta.url).pathname,
     stdio: 'ignore',
   });
-  // O reset reinicia os serviços; espera a API e o Realtime voltarem.
+  // O reset reinicia os serviços; espera o login, a API REST e o Realtime voltarem.
   for (let i = 0; i < 90; i++) {
     let realtime = '';
     try {
@@ -60,7 +60,9 @@ export async function bancoLimpo() {
     } catch {}
     try {
       const auth = await fetch(`${API}/auth/v1/health`, { headers: { apikey: ANON } });
-      if (auth.ok && realtime === 'healthy') break;
+      // A API REST só responde sem 5xx depois de carregar o esquema de novo.
+      const rest = await fetch(`${API}/rest/v1/areas?select=id&limit=1`, { headers: { apikey: ANON } });
+      if (auth.ok && rest.status < 500 && realtime === 'healthy') break;
     } catch {}
     await new Promise((r) => setTimeout(r, 1000));
   }

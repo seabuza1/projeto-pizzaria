@@ -35,3 +35,6 @@ Escrito para o Luan e a gerente. Uma linha por mudança que aparece na tela, com
 | 31/10/2026 | Se outro aparelho está atendendo o mesmo telefone, aparece "Atendendo 3557 em outro aparelho há 2 min" com "Assumir". Código repetido na noite pede confirmação. | Não. |
 | 31/10/2026 | Retirada: "Avisar" abre a conversa com "Seu pedido está pronto para retirada"; "Retirado" encerra. | Atendimento: avisar e marcar quando o cliente buscar. |
 | 31/10/2026 | Se ninguém abriu a noite, o primeiro pedido abre. O fechamento da noite também lista os rascunhos abertos. | Não. |
+| 31/10/2026 | A comanda sai impressa ao tocar em "Autorizado"; um pedido alterado sai de novo com "ALTERADO". "Reimprimir" na lateral do atendimento e no menu do código no painel. | Atendimento: levar a comanda à cozinha, como hoje. |
+| 31/10/2026 | O recibo do acerto sai impresso na confirmação, com espaço para as duas assinaturas; "Reimprimir recibo" no caixa do motoboy. A folha da noite só por botão, no resumo. | Luan: colher as assinaturas no recibo. |
+| 31/10/2026 | Agente de impressão no computador do balcão: imprime na térmica do Wi-Fi e, sem internet, imprime direto o que o balcão manda. | Felipe: instalar o agente e a impressora (etapa de deploy). |

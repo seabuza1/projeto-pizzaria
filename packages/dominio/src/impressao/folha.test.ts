@@ -91,7 +91,7 @@ describe('folha da noite', () => {
         'Noite: 16/10/2026              Impressa às 23:59',
         '  3595  din ->3,00',
         '  8094  voltou',
-        '  1693  cartão (em rota) *',
+        '  1693  cartão *',
         'Devolve                                   243,00',
         'Acerto confirmado: pago                    86,00',
         'Acerto pendente',

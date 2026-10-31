@@ -88,6 +88,18 @@ export function MenuSaida({
               Ainda não entregou
             </Botao>
           )}
+          {pedido.origem !== 'papel' && (
+            <Botao
+              variante="fantasma"
+              onClick={() => {
+                void acoes.imprimirComanda(pedido.id);
+                mostrarAviso(`Comanda ${codigo} na impressora`);
+                aoFechar();
+              }}
+            >
+              Reimprimir comanda
+            </Botao>
+          )}
           {/* OPE3: a saída fica registrada como cancelada, com o motivo. */}
           <input
             className="min-h-12 rounded-xl border border-borda bg-cartao px-3"
