@@ -68,6 +68,8 @@ export const CONTAS = {
   dona: { id: 'a0000000-0000-4000-8000-000000000003', email: 'dona@mel.test' },
   agente: { id: 'a0000000-0000-4000-8000-000000000006', email: 'agente@mel.test' },
   atendimento: { id: 'a0000000-0000-4000-8000-000000000008', email: 'atendimento@mel.test' },
+  /** Gerente sem autenticador cadastrado (o seed não cria o fator dela). */
+  nova: { id: 'a0000000-0000-4000-8000-000000000009', email: 'nova@mel.test' },
 } as const;
 export type Conta = keyof typeof CONTAS;
 

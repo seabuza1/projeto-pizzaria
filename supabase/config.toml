@@ -282,6 +282,12 @@ max_frequency = "5s"
 # enabled = true
 # uri = "pg-functions://postgres/auth/before-user-created-hook"
 
+# MFA: o primeiro autenticador só se cadastra com a liberação do admin (migração liberar_autenticador).
+# Em produção, ligar o mesmo hook no painel do Supabase (Authentication, Hooks).
+[auth.hook.mfa_verification_attempt]
+enabled = true
+uri = "pg-functions://postgres/public/hook_verificacao_mfa"
+
 # This hook runs before a token is issued and allows you to add additional claims based on the authentication method used.
 # [auth.hook.custom_access_token]
 # enabled = true

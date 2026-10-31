@@ -227,6 +227,8 @@ const dadosPorTipo = {
       .min(1)
       .optional(),
     ativo: z.boolean().optional(),
+    /** Libera por 30 min o cadastro do primeiro autenticador (MFA). */
+    liberar_mfa: z.boolean().optional(),
   }),
 } as const;
 

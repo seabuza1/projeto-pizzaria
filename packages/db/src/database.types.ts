@@ -1302,6 +1302,7 @@ export type Database = {
           atualizado_em: string;
           criado_em: string;
           id: string;
+          mfa_liberado_ate: string | null;
           nome: string;
           papeis: Database['public']['Enums']['papel'][];
         };
@@ -1311,6 +1312,7 @@ export type Database = {
           atualizado_em?: string;
           criado_em?: string;
           id: string;
+          mfa_liberado_ate?: string | null;
           nome: string;
           papeis: Database['public']['Enums']['papel'][];
         };
@@ -1319,6 +1321,7 @@ export type Database = {
           atualizado_em?: string;
           criado_em?: string;
           id?: string;
+          mfa_liberado_ate?: string | null;
           nome?: string;
           papeis?: Database['public']['Enums']['papel'][];
         };
@@ -1501,6 +1504,7 @@ export type Database = {
       aplicar_operacao: { Args: { op: Json }; Returns: Json };
       area_sugerida: { Args: { p_codigo: string }; Returns: string };
       batimento_agente: { Args: { p: Json }; Returns: undefined };
+      hook_verificacao_mfa: { Args: { evento: Json }; Returns: Json };
       registrar_erro: { Args: { p_erro: Json }; Returns: undefined };
     };
     Enums: {

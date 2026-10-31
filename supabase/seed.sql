@@ -14,7 +14,9 @@ begin
       ('a0000000-0000-4000-8000-000000000002'::uuid, 'luan@mel.test', 'Luan', '{expedicao}'::public.papel[]),
       ('a0000000-0000-4000-8000-000000000003'::uuid, 'dona@mel.test', 'Dona', '{gerente}'::public.papel[]),
       ('a0000000-0000-4000-8000-000000000006'::uuid, 'agente@mel.test', 'Balcão', '{agente}'::public.papel[]),
-      ('a0000000-0000-4000-8000-000000000008'::uuid, 'atendimento@mel.test', 'Atendimento', '{atendente}'::public.papel[])
+      ('a0000000-0000-4000-8000-000000000008'::uuid, 'atendimento@mel.test', 'Atendimento', '{atendente}'::public.papel[]),
+      -- Gerente nova, ainda sem autenticador (teste da liberação pelo admin).
+      ('a0000000-0000-4000-8000-000000000009'::uuid, 'nova@mel.test', 'Nova', '{gerente}'::public.papel[])
     ) as t (id, email, nome, papeis)
   loop
     insert into auth.users (
@@ -40,7 +42,7 @@ $$;
 insert into auth.mfa_factors (id, user_id, friendly_name, factor_type, status, created_at, updated_at, secret)
 select gen_random_uuid(), p.id, 'Autenticador de teste', 'totp', 'verified', now(), now(), 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP'
 from public.perfis p
-where p.papeis && '{admin,gerente}'::public.papel[];
+where p.papeis && '{admin,gerente}'::public.papel[] and p.id <> 'a0000000-0000-4000-8000-000000000009';
 
 insert into public.motoboys (id, nome) values
   ('a0000000-0000-4000-8000-000000000004', 'João'),

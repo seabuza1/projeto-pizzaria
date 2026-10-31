@@ -162,7 +162,7 @@ Um app web instalável (PWA) em **TypeScript**, usado no balcão (atendimento, L
 - **Regras de acesso:** RLS em todas as tabelas, com funções `security definer` para ler o papel (modelo em `referencia/schema-v1.sql`).
 - **Papéis em uso:** `admin`, `gerente`, `expedicao`, `atendente` e `agente`. `cozinha` e `garcom` só quando as fases 3 e 4 entrarem. `motoboy` fica no enum sem uso (decisão 0007).
 - **Testes de acesso:** um teste por papel com contas reais no Supabase local. Exemplos: o atendente não confirma acerto, ninguém edita depois do acerto confirmado, e `anon` não lê nada.
-- **Contas:** MFA (código no app autenticador) obrigatório para `admin` e `gerente`. Os limites de tentativa de login do Supabase ficam ligados.
+- **Contas:** MFA (código no app autenticador) obrigatório para `admin` e `gerente`; o primeiro autenticador da conta só se cadastra com a liberação do admin, por 30 minutos (hook de verificação do MFA, decisão 0011). Os limites de tentativa de login do Supabase ficam ligados.
 - **Chaves:** no front, só a anon key. A service role e as chaves de API ficam nos secrets do Supabase ou do servidor. Backups `.json` e `.env` ficam fora do repositório (`.gitignore`).
 - **Dados de cliente** (telefone, endereço, localização): só a equipe do balcão vê no sistema; o motoboy recebe na comanda impressa das entregas dele. Os logs não levam dados pessoais.
 - **Backups:** os backups diários do Supabase Pro e um `pg_dump` semanal guardado fora do Supabase.

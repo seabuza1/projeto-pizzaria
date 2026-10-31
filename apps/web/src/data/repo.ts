@@ -231,8 +231,12 @@ export async function confirmarCodigo(codigo: string): Promise<string | null> {
   const atual = sessao;
   if (atual.estado !== 'mfa' && atual.estado !== 'cadastrar_mfa') return null;
   const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId: atual.fatorId, code: codigo.trim() });
-  if (error)
+  if (error) {
+    // Decisão 0011: o primeiro autenticador só se cadastra com a liberação do admin.
+    if (/não liberado/i.test(error.message))
+      return 'Cadastro do autenticador não liberado. Peça ao admin para liberar.';
     return /invalid|expired/i.test(error.message) ? 'Código errado ou vencido.' : 'Sem conexão. Tente de novo.';
+  }
   const { data } = await supabase.auth.getUser();
   mudarBloqueio(null);
   if (data.user) await comecar(data.user.id);
