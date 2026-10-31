@@ -1,14 +1,17 @@
 // Única porta de dados das telas (CLAUDE.md, Dados). Esconde o IndexedDB, a fila e o Supabase.
 // As telas leem com os hooks daqui e escrevem com `acoes`; as contas vêm de @mel/dominio.
 import {
+  cardapioDasLinhas,
   type DadosDe,
   entradaDoCaixa,
+  type LinhasCardapio,
   type PagamentoLancadoDb,
   pagamentoParaDominio,
   saidaParaDominio,
   type TipoOperacao,
 } from '@mel/db';
 import {
+  type Cardapio,
   type ContaAcerto,
   calcularAcerto,
   type Forma,
@@ -34,16 +37,24 @@ import { type Bloqueio, Motor } from './motor';
 import { supabase } from './supabase';
 
 export type {
+  Acabou,
   Acerto,
+  Adicional,
   Area,
+  Bebida,
+  Borda,
   Caixa,
+  Cliente,
+  Combo,
   Config,
+  FaixaPreco,
   Impressao,
   Motoboy,
   Noite,
   Pagamento,
   Pedido,
   Perfil,
+  Sabor,
   Saida,
 } from './banco-local';
 
@@ -254,6 +265,45 @@ export const usePerfis = () => useLiveQuery(() => banco.perfis.toArray(), [], []
 export const useMotoboys = () =>
   useLiveQuery(async () => (await banco.motoboys.toArray()).sort((a, b) => a.nome.localeCompare(b.nome)), [], []);
 
+/** Cardápio como está no banco (com inativos), para a tela da gerente. */
+export function useLinhasCardapio(): LinhasCardapio | undefined {
+  return useLiveQuery(async () => {
+    const [faixas, sabores, bordas, adicionais, bebidas, combos] = await Promise.all([
+      banco.cardapio_faixas.toArray(),
+      banco.cardapio_sabores.toArray(),
+      banco.cardapio_bordas.toArray(),
+      banco.cardapio_adicionais.toArray(),
+      banco.cardapio_bebidas.toArray(),
+      banco.cardapio_combos.toArray(),
+    ]);
+    const emOrdem = <T extends { ordem: number; nome?: string }>(l: T[]) => l.sort((a, b) => a.ordem - b.ordem);
+    return {
+      faixas,
+      sabores: emOrdem(sabores),
+      bordas: emOrdem(bordas),
+      adicionais: emOrdem(adicionais),
+      bebidas: emOrdem(bebidas),
+      combos: emOrdem(combos),
+    };
+  }, []);
+}
+
+/** "Acabou hoje": os itens marcados na noite. */
+export const useAcabou = (noiteId: string | undefined) =>
+  useLiveQuery(
+    async () =>
+      new Set(
+        noiteId ? (await banco.cardapio_acabou.where('noite_id').equals(noiteId).toArray()).map((a) => a.item_id) : [],
+      ),
+    [noiteId],
+    new Set<string>(),
+  );
+
+/** Cardápio de venda (sem inativos nem o que acabou hoje), já no formato de @mel/dominio. */
+export function cardapioDeVenda(linhas: LinhasCardapio, acabou: ReadonlySet<string>): Cardapio | null {
+  return linhas.faixas.length === 0 ? null : cardapioDasLinhas(linhas, acabou);
+}
+
 export function useAreas(todas = false) {
   return useLiveQuery(
     async () => (await banco.areas.toArray()).filter((a) => todas || a.ativa).sort((a, b) => a.ordem - b.ordem),
@@ -327,6 +377,8 @@ export function pagamentosVigentes(saida: Saida, pagamentos: readonly Pagamento[
 // Escrita ----------------------------------------------------------------------
 
 const novoId = () => uuidv7();
+/** Item novo do cardápio: o id nasce aqui, no aparelho. */
+type SemId<T> = T extends unknown ? Omit<T, 'item_id'> & { item_id?: string } : never;
 
 /** A versão do pedido que a tela mostrou (Conflitos e concorrência). */
 async function versaoDoPedidoDa(saidaId: string): Promise<number> {
@@ -466,6 +518,12 @@ export const acoes = {
     }),
   salvarConfig: (c: DadosDe<'salvar_config'>) => executar('salvar_config', c),
   salvarPerfil: (p: DadosDe<'salvar_perfil'>) => executar('salvar_perfil', p),
+  salvarPrecoFaixa: (p: DadosDe<'salvar_preco_faixa'>) => executar('salvar_preco_faixa', p),
+  salvarItemCardapio: (item: SemId<DadosDe<'salvar_item_cardapio'>>) =>
+    executar('salvar_item_cardapio', { ...item, item_id: item.item_id ?? novoId() } as DadosDe<'salvar_item_cardapio'>),
+  marcarAcabou: (p: DadosDe<'marcar_acabou'>) => executar('marcar_acabou', p),
+  /** PED4: 0 = sem promoção. */
+  definirPromocao: (noiteId: string, desconto: number) => executar('definir_promocao', { noite_id: noiteId, desconto }),
   salvarMotoboy: (m: { id?: string; nome: string; ativo: boolean }) =>
     executar('salvar_motoboy', { motoboy_id: m.id ?? novoId(), nome: m.nome, ativo: m.ativo }),
 };

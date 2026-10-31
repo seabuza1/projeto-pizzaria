@@ -8,6 +8,12 @@ const motivo = z.string().trim().min(1).max(300);
 const centavos = z.number().int().nonnegative().max(2_000_000_000);
 const positivo = z.number().int().positive().max(2_000_000_000);
 
+const faixaPizza = z.enum(['tradicional', 'especial', 'premium', 'doce', 'doce_especial']);
+const nomeItem = z.string().trim().min(1).max(80);
+const apelidos = z.array(z.string().trim().min(1).max(40)).max(20);
+const ordem = z.number().int().min(0).max(999).optional();
+const textoOpcional = (max: number) => z.string().trim().max(max).nullable().optional();
+
 export const formaPagamento = z.enum(['dinheiro', 'cartao', 'pix_maquininha', 'pix_antecipado']);
 
 export const pagamentoLancado = z.object({
@@ -110,6 +116,65 @@ const dadosPorTipo = {
       .max(30)
       .optional(),
   }),
+  salvar_preco_faixa: z.object({ faixa: faixaPizza, tamanho: z.enum(['B', 'P', 'M', 'G']), preco: positivo }),
+  salvar_item_cardapio: z.discriminatedUnion('tipo', [
+    z.object({
+      tipo: z.literal('sabor'),
+      item_id: id,
+      nome: nomeItem,
+      faixa: faixaPizza,
+      ingredientes: z.string().trim().max(300).optional(),
+      apelidos: apelidos.optional(),
+      ativo: z.boolean(),
+      ordem,
+    }),
+    z.object({ tipo: z.literal('borda'), item_id: id, nome: nomeItem, preco: centavos, ativo: z.boolean(), ordem }),
+    z.object({
+      tipo: z.literal('adicional'),
+      item_id: id,
+      nome: nomeItem,
+      preco: centavos,
+      avulso: z.boolean().optional(),
+      ativo: z.boolean(),
+      ordem,
+    }),
+    z.object({
+      tipo: z.literal('bebida'),
+      item_id: id,
+      nome: nomeItem,
+      preco: centavos,
+      grupo: z.string().trim().min(1).max(40).optional(),
+      apelidos: apelidos.optional(),
+      ativo: z.boolean(),
+      ordem,
+    }),
+    z.object({
+      tipo: z.literal('combo'),
+      item_id: id,
+      nome: z.string().regex(/^\d{2}$/),
+      itens: z.array(nomeItem).min(1).max(10),
+      preco: positivo,
+      ativo: z.boolean(),
+      ordem,
+    }),
+  ]),
+  marcar_acabou: z.object({
+    noite_id: id,
+    tipo: z.enum(['sabor', 'borda', 'adicional', 'bebida', 'combo']),
+    item_id: id,
+    acabou: z.boolean(),
+  }),
+  /** PED4: 0 = sem promoção; senão, de R$ 3 a R$ 23. */
+  definir_promocao: z.object({ noite_id: id, desconto: z.union([z.literal(0), z.number().int().min(300).max(2300)]) }),
+  salvar_cliente: z.object({
+    cliente_id: id,
+    telefone: z.string().regex(/^\d{10,11}$/),
+    nome: textoOpcional(80),
+    local_link: textoOpcional(500),
+    local_endereco: textoOpcional(300),
+    local_referencia: textoOpcional(300),
+    area_id: id.nullable().optional(),
+  }),
   salvar_motoboy: z.object({ motoboy_id: id, nome: z.string().trim().min(1).max(60), ativo: z.boolean() }),
   salvar_perfil: z.object({
     perfil_id: id,
@@ -153,6 +218,11 @@ export const donoDaOperacao: Record<TipoOperacao, string> = {
   salvar_config: 'nucleo',
   salvar_perfil: 'nucleo',
   salvar_motoboy: 'motoboys',
+  salvar_preco_faixa: 'cardapio',
+  salvar_item_cardapio: 'cardapio',
+  marcar_acabou: 'cardapio',
+  definir_promocao: 'expedicao',
+  salvar_cliente: 'nucleo',
 };
 
 /** Versão do formato das operações. O servidor aceita esta e a anterior (interno.versao_op_atual). */

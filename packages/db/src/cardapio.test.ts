@@ -2,6 +2,7 @@ import { cardapioEmCentavos } from '@mel/dominio';
 import { describe, expect, it } from 'vitest';
 import cardapioMel from '../../../docs/dados/cardapio-mel.json';
 import { CardapioSchema } from './cardapio';
+import { seedDoCardapio } from './seed-cardapio';
 
 const lido = cardapioMel;
 
@@ -30,5 +31,13 @@ describe('cardápio real (docs/dados/cardapio-mel.json)', () => {
     const repetido = copia();
     repetido.pizzas.sabores.push({ ...repetido.pizzas.sabores[0] });
     expect(CardapioSchema.safeParse(repetido).success).toBe(false);
+  });
+});
+
+describe('seed do cardápio (supabase/seeds/cardapio.sql)', () => {
+  it('é gerado do JSON validado; se o JSON mudar, rode pnpm db:cardapio', async () => {
+    await expect(seedDoCardapio(CardapioSchema.parse(lido))).toMatchFileSnapshot(
+      '../../../supabase/seeds/cardapio.sql',
+    );
   });
 });

@@ -213,6 +213,308 @@ export type Database = {
           },
         ];
       };
+      cardapio_acabou: {
+        Row: {
+          atualizado_em: string;
+          criado_em: string;
+          id: string;
+          item_id: string;
+          marcado_por: string | null;
+          noite_id: string;
+          tipo: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          atualizado_em?: string;
+          criado_em?: string;
+          id?: string;
+          item_id: string;
+          marcado_por?: string | null;
+          noite_id: string;
+          tipo: string;
+        };
+        Update: {
+          atualizado_em?: string;
+          criado_em?: string;
+          id?: string;
+          item_id?: string;
+          marcado_por?: string | null;
+          noite_id?: string;
+          tipo?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'cardapio_acabou_marcado_por_fkey';
+            columns: ['marcado_por'];
+            isOneToOne: false;
+            referencedRelation: 'perfis';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'cardapio_acabou_noite_id_fkey';
+            columns: ['noite_id'];
+            isOneToOne: false;
+            referencedRelation: 'noites';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      cardapio_adicionais: {
+        Row: {
+          ativo: boolean;
+          atualizado_em: string;
+          avulso: boolean;
+          criado_em: string;
+          id: string;
+          nome: string;
+          ordem: number;
+          preco: number;
+        };
+        ComputedFields: never;
+        Insert: {
+          ativo?: boolean;
+          atualizado_em?: string;
+          avulso?: boolean;
+          criado_em?: string;
+          id?: string;
+          nome: string;
+          ordem?: number;
+          preco: number;
+        };
+        Update: {
+          ativo?: boolean;
+          atualizado_em?: string;
+          avulso?: boolean;
+          criado_em?: string;
+          id?: string;
+          nome?: string;
+          ordem?: number;
+          preco?: number;
+        };
+        Relationships: [];
+      };
+      cardapio_bebidas: {
+        Row: {
+          apelidos: string[];
+          ativo: boolean;
+          atualizado_em: string;
+          criado_em: string;
+          grupo: string;
+          id: string;
+          nome: string;
+          ordem: number;
+          preco: number;
+        };
+        ComputedFields: never;
+        Insert: {
+          apelidos?: string[];
+          ativo?: boolean;
+          atualizado_em?: string;
+          criado_em?: string;
+          grupo: string;
+          id?: string;
+          nome: string;
+          ordem?: number;
+          preco: number;
+        };
+        Update: {
+          apelidos?: string[];
+          ativo?: boolean;
+          atualizado_em?: string;
+          criado_em?: string;
+          grupo?: string;
+          id?: string;
+          nome?: string;
+          ordem?: number;
+          preco?: number;
+        };
+        Relationships: [];
+      };
+      cardapio_bordas: {
+        Row: {
+          ativo: boolean;
+          atualizado_em: string;
+          criado_em: string;
+          id: string;
+          nome: string;
+          ordem: number;
+          preco: number;
+        };
+        ComputedFields: never;
+        Insert: {
+          ativo?: boolean;
+          atualizado_em?: string;
+          criado_em?: string;
+          id?: string;
+          nome: string;
+          ordem?: number;
+          preco: number;
+        };
+        Update: {
+          ativo?: boolean;
+          atualizado_em?: string;
+          criado_em?: string;
+          id?: string;
+          nome?: string;
+          ordem?: number;
+          preco?: number;
+        };
+        Relationships: [];
+      };
+      cardapio_combos: {
+        Row: {
+          ativo: boolean;
+          atualizado_em: string;
+          codigo: string;
+          criado_em: string;
+          id: string;
+          itens: string[];
+          ordem: number;
+          preco: number;
+        };
+        ComputedFields: never;
+        Insert: {
+          ativo?: boolean;
+          atualizado_em?: string;
+          codigo: string;
+          criado_em?: string;
+          id?: string;
+          itens: string[];
+          ordem?: number;
+          preco: number;
+        };
+        Update: {
+          ativo?: boolean;
+          atualizado_em?: string;
+          codigo?: string;
+          criado_em?: string;
+          id?: string;
+          itens?: string[];
+          ordem?: number;
+          preco?: number;
+        };
+        Relationships: [];
+      };
+      cardapio_faixas: {
+        Row: {
+          atualizado_em: string;
+          criado_em: string;
+          faixa: Database['public']['Enums']['faixa_pizza'];
+          id: string;
+          preco: number;
+          tamanho: Database['public']['Enums']['tamanho_pizza'];
+        };
+        ComputedFields: never;
+        Insert: {
+          atualizado_em?: string;
+          criado_em?: string;
+          faixa: Database['public']['Enums']['faixa_pizza'];
+          id?: string;
+          preco: number;
+          tamanho: Database['public']['Enums']['tamanho_pizza'];
+        };
+        Update: {
+          atualizado_em?: string;
+          criado_em?: string;
+          faixa?: Database['public']['Enums']['faixa_pizza'];
+          id?: string;
+          preco?: number;
+          tamanho?: Database['public']['Enums']['tamanho_pizza'];
+        };
+        Relationships: [];
+      };
+      cardapio_sabores: {
+        Row: {
+          apelidos: string[];
+          ativo: boolean;
+          atualizado_em: string;
+          criado_em: string;
+          faixa: Database['public']['Enums']['faixa_pizza'];
+          id: string;
+          ingredientes: string | null;
+          nome: string;
+          ordem: number;
+        };
+        ComputedFields: never;
+        Insert: {
+          apelidos?: string[];
+          ativo?: boolean;
+          atualizado_em?: string;
+          criado_em?: string;
+          faixa: Database['public']['Enums']['faixa_pizza'];
+          id?: string;
+          ingredientes?: string | null;
+          nome: string;
+          ordem?: number;
+        };
+        Update: {
+          apelidos?: string[];
+          ativo?: boolean;
+          atualizado_em?: string;
+          criado_em?: string;
+          faixa?: Database['public']['Enums']['faixa_pizza'];
+          id?: string;
+          ingredientes?: string | null;
+          nome?: string;
+          ordem?: number;
+        };
+        Relationships: [];
+      };
+      clientes: {
+        Row: {
+          area_id: string | null;
+          atualizado_em: string;
+          atualizado_por: string | null;
+          criado_em: string;
+          id: string;
+          local_endereco: string | null;
+          local_link: string | null;
+          local_referencia: string | null;
+          nome: string | null;
+          telefone: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          area_id?: string | null;
+          atualizado_em?: string;
+          atualizado_por?: string | null;
+          criado_em?: string;
+          id?: string;
+          local_endereco?: string | null;
+          local_link?: string | null;
+          local_referencia?: string | null;
+          nome?: string | null;
+          telefone: string;
+        };
+        Update: {
+          area_id?: string | null;
+          atualizado_em?: string;
+          atualizado_por?: string | null;
+          criado_em?: string;
+          id?: string;
+          local_endereco?: string | null;
+          local_link?: string | null;
+          local_referencia?: string | null;
+          nome?: string | null;
+          telefone?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'clientes_area_id_fkey';
+            columns: ['area_id'];
+            isOneToOne: false;
+            referencedRelation: 'areas';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'clientes_atualizado_por_fkey';
+            columns: ['atualizado_por'];
+            isOneToOne: false;
+            referencedRelation: 'perfis';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       config: {
         Row: {
           ambiente: Database['public']['Enums']['ambiente'];
@@ -1001,10 +1303,12 @@ export type Database = {
       estado_impressao: 'pendente' | 'imprimindo' | 'impresso' | 'erro';
       estado_pedido: 'aberto' | 'entregue' | 'cancelado';
       estado_saida: 'separada' | 'em_rota' | 'entregue' | 'voltou';
+      faixa_pizza: 'tradicional' | 'especial' | 'premium' | 'doce' | 'doce_especial';
       forma_pagamento: 'dinheiro' | 'cartao' | 'pix_maquininha' | 'pix_antecipado';
       origem_pagamento: 'manual' | 'webhook' | 'maquininha';
       origem_pedido: 'papel' | 'whatsapp' | 'balcao' | 'mesa' | 'link';
       papel: 'admin' | 'gerente' | 'expedicao' | 'atendente' | 'motoboy' | 'cozinha' | 'garcom' | 'agente';
+      tamanho_pizza: 'B' | 'P' | 'M' | 'G';
       tipo_impressao: 'recibo_acerto' | 'folha_noite';
       tipo_pedido: 'entrega' | 'retirada' | 'mesa';
     };
@@ -1120,10 +1424,12 @@ export const Constants = {
       estado_impressao: ['pendente', 'imprimindo', 'impresso', 'erro'],
       estado_pedido: ['aberto', 'entregue', 'cancelado'],
       estado_saida: ['separada', 'em_rota', 'entregue', 'voltou'],
+      faixa_pizza: ['tradicional', 'especial', 'premium', 'doce', 'doce_especial'],
       forma_pagamento: ['dinheiro', 'cartao', 'pix_maquininha', 'pix_antecipado'],
       origem_pagamento: ['manual', 'webhook', 'maquininha'],
       origem_pedido: ['papel', 'whatsapp', 'balcao', 'mesa', 'link'],
       papel: ['admin', 'gerente', 'expedicao', 'atendente', 'motoboy', 'cozinha', 'garcom', 'agente'],
+      tamanho_pizza: ['B', 'P', 'M', 'G'],
       tipo_impressao: ['recibo_acerto', 'folha_noite'],
       tipo_pedido: ['entrega', 'retirada', 'mesa'],
     },

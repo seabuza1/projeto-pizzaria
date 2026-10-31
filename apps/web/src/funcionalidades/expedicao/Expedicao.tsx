@@ -12,6 +12,7 @@ import { FecharNoite } from './FecharNoite';
 import { Folha } from './Folha';
 import { LancarComanda } from './LancarComanda';
 import { NoitesAntigas } from './NoitesAntigas';
+import { PromocaoDaNoite } from './PromocaoDaNoite';
 import { Resumo } from './Resumo';
 
 const linkNoites = 'flex min-h-12 items-center justify-center rounded-xl border border-borda bg-cartao font-semibold';
@@ -98,6 +99,7 @@ export function Expedicao({ perfil }: { perfil: Perfil }) {
                   <Botao onClick={() => setFechando(true)}>Ver pendentes e fechar</Botao>
                 </div>
               )}
+              {!deOntem && <PromocaoDaNoite noite={aberta} />}
               <Despacho dados={dados} caixas={caixasAbertos} />
               {semCaixa.length > 0 && (
                 <div className="flex flex-wrap items-center gap-2 px-3 pt-3">

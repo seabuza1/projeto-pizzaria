@@ -67,6 +67,7 @@ export const CONTAS = {
   luan: { id: 'a0000000-0000-4000-8000-000000000002', email: 'luan@mel.test' },
   dona: { id: 'a0000000-0000-4000-8000-000000000003', email: 'dona@mel.test' },
   agente: { id: 'a0000000-0000-4000-8000-000000000006', email: 'agente@mel.test' },
+  atendimento: { id: 'a0000000-0000-4000-8000-000000000008', email: 'atendimento@mel.test' },
 } as const;
 export type Conta = keyof typeof CONTAS;
 
@@ -148,8 +149,12 @@ export function aplicada(r: RespostaOperacao): RespostaOperacao {
 export async function limpar(tentativa = 1): Promise<void> {
   try {
     await sql`
-      truncate public.eventos, public.operacoes, public.impressoes, public.sobras, public.faltas, public.acertos,
+      truncate public.cardapio_acabou, public.cardapio_faixas, public.cardapio_sabores, public.cardapio_bordas,
+        public.cardapio_adicionais, public.cardapio_bebidas, public.cardapio_combos, public.clientes,
+        public.eventos, public.operacoes, public.impressoes, public.sobras, public.faltas, public.acertos,
         public.pagamentos, public.saidas, public.pedidos, public.caixas, public.noites, public.erros cascade`;
+    // O cardápio volta ao do JSON (o mesmo seed do supabase db reset).
+    await sql.file(fileURLToPath(new URL('../seeds/cardapio.sql', import.meta.url)));
     await sql`update public.areas set taxa = case nome
       when 'Aragarças' then 500 when 'Barra' then 1200 when 'Pontal' then 1000 when 'Parque de Exposições' then 1500
       else taxa end`;

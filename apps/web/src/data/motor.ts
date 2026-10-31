@@ -25,7 +25,22 @@ export interface OpcoesMotor {
 }
 
 const TABELAS_DA_NOITE = ['caixas', 'pedidos', 'saidas', 'pagamentos', 'acertos', 'impressoes'] as const;
-const TABELAS_GERAIS = ['noites', 'areas', 'config', 'perfis', 'motoboys'] as const;
+const TABELAS_GERAIS = [
+  'noites',
+  'areas',
+  'config',
+  'perfis',
+  'motoboys',
+  'cardapio_faixas',
+  'cardapio_sabores',
+  'cardapio_bordas',
+  'cardapio_adicionais',
+  'cardapio_bebidas',
+  'cardapio_combos',
+  'clientes',
+  // Desmarcar "acabou hoje" apaga a linha, e o DELETE não passa por filtro de noite_id: escuta sem filtro.
+  'cardapio_acabou',
+] as const;
 const MAX_TENTATIVAS = 5;
 
 export type Bloqueio = { tipo: 'atualizar' | 'mfa'; mensagem: string };
@@ -179,6 +194,18 @@ export class Motor {
         supabase.from('noites').select('*').order('data', { ascending: false }).limit(3),
       ]);
       for (const r of [config, areas, perfis, motoboys, noites]) if (r.error) throw r.error;
+      // O agente não lê cardápio nem clientes (RLS): para ele, vêm vazios.
+      const cadastros = await Promise.all([
+        supabase.from('cardapio_faixas').select('*'),
+        supabase.from('cardapio_sabores').select('*'),
+        supabase.from('cardapio_bordas').select('*'),
+        supabase.from('cardapio_adicionais').select('*'),
+        supabase.from('cardapio_bebidas').select('*'),
+        supabase.from('cardapio_combos').select('*'),
+        supabase.from('clientes').select('*'),
+      ]);
+      for (const r of cadastros) if (r.error) throw r.error;
+      const [faixas, sabores, bordas, adicionais, bebidas, combos, clientes] = cadastros;
       const noite = noites.data?.find((n) => !n.fechada_em) ?? noites.data?.[0];
       const vazio = { data: [], error: null };
       const daNoite = noite
@@ -189,10 +216,11 @@ export class Motor {
             supabase.from('pagamentos').select('*').eq('noite_id', noite.id),
             supabase.from('acertos').select('*').eq('noite_id', noite.id),
             supabase.from('impressoes').select('*').eq('noite_id', noite.id).order('criado_em', { ascending: false }),
+            supabase.from('cardapio_acabou').select('*').eq('noite_id', noite.id),
           ])
-        : [vazio, vazio, vazio, vazio, vazio, vazio];
+        : [vazio, vazio, vazio, vazio, vazio, vazio, vazio];
       for (const r of daNoite) if (r.error) throw r.error;
-      const [caixas, pedidos, saidas, pagamentos, acertos, impressoes] = daNoite;
+      const [caixas, pedidos, saidas, pagamentos, acertos, impressoes, acabou] = daNoite;
 
       const usuarioId = this.usuarioId ?? '';
       await banco.transaction('rw', [...banco.tabelasDeDados, banco.fila], async () => {
@@ -208,6 +236,14 @@ export class Motor {
         await banco.pagamentos.bulkPut((pagamentos.data ?? []) as never[]);
         await banco.acertos.bulkPut((acertos.data ?? []) as never[]);
         await banco.impressoes.bulkPut((impressoes.data ?? []) as never[]);
+        await banco.cardapio_faixas.bulkPut(faixas.data ?? []);
+        await banco.cardapio_sabores.bulkPut(sabores.data ?? []);
+        await banco.cardapio_bordas.bulkPut(bordas.data ?? []);
+        await banco.cardapio_adicionais.bulkPut(adicionais.data ?? []);
+        await banco.cardapio_bebidas.bulkPut(bebidas.data ?? []);
+        await banco.cardapio_combos.bulkPut(combos.data ?? []);
+        await banco.clientes.bulkPut(clientes.data ?? []);
+        await banco.cardapio_acabou.bulkPut((acabou.data ?? []) as never[]);
         // O que ainda não subiu continua valendo na tela.
         for (const op of await banco.fila.orderBy('seq').toArray()) await aplicarLocal(banco, op, { usuarioId });
       });
@@ -239,6 +275,11 @@ export class Motor {
     for (const table of TABELAS_GERAIS) {
       canal.on('postgres_changes', { event: '*', schema: 'public', table }, () => this.agendarBaixa());
     }
+    // O Postgres só passa a mandar mudanças uns segundos depois de o canal entrar; o que mudou nesse
+    // intervalo se perderia. Quando ele confirma, baixa de novo.
+    canal.on('system', {}, (m: { extension?: string; status?: string }) => {
+      if (m?.extension === 'postgres_changes' && m?.status === 'ok') this.agendarBaixa();
+    });
     canal.subscribe((status) => {
       this.realtimeOk = status === 'SUBSCRIBED';
       // Canal caiu (Realtime reiniciando, rede): solta e deixa o relógio recriar e baixar de novo.

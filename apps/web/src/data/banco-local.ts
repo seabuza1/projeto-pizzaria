@@ -13,6 +13,14 @@ export type Perfil = Tables<'perfis'>;
 export type Motoboy = Tables<'motoboys'>;
 export type Config = Tables<'config'>;
 export type Impressao = Tables<'impressoes'>;
+export type FaixaPreco = Tables<'cardapio_faixas'>;
+export type Sabor = Tables<'cardapio_sabores'>;
+export type Borda = Tables<'cardapio_bordas'>;
+export type Adicional = Tables<'cardapio_adicionais'>;
+export type Bebida = Tables<'cardapio_bebidas'>;
+export type Combo = Tables<'cardapio_combos'>;
+export type Acabou = Tables<'cardapio_acabou'>;
+export type Cliente = Tables<'clientes'>;
 
 export interface OperacaoNaFila extends Operacao {
   seq: number;
@@ -46,6 +54,14 @@ export class BancoLocal extends Dexie {
   motoboys!: EntityTable<Motoboy, 'id'>;
   config!: EntityTable<Config, 'id'>;
   impressoes!: EntityTable<Impressao, 'id'>;
+  cardapio_faixas!: EntityTable<FaixaPreco, 'id'>;
+  cardapio_sabores!: EntityTable<Sabor, 'id'>;
+  cardapio_bordas!: EntityTable<Borda, 'id'>;
+  cardapio_adicionais!: EntityTable<Adicional, 'id'>;
+  cardapio_bebidas!: EntityTable<Bebida, 'id'>;
+  cardapio_combos!: EntityTable<Combo, 'id'>;
+  cardapio_acabou!: EntityTable<Acabou, 'id'>;
+  clientes!: EntityTable<Cliente, 'id'>;
   fila!: EntityTable<OperacaoNaFila, 'id'>;
   recusas!: EntityTable<Recusa, 'id'>;
   meta!: EntityTable<Meta, 'chave'>;
@@ -69,6 +85,17 @@ export class BancoLocal extends Dexie {
     });
     // Decisão 0007: o motoboy virou cadastro.
     this.version(2).stores({ motoboys: 'id' });
+    // F2, 2a: cardápio, "acabou hoje" e clientes, para atender sem internet.
+    this.version(3).stores({
+      cardapio_faixas: 'id',
+      cardapio_sabores: 'id',
+      cardapio_bordas: 'id',
+      cardapio_adicionais: 'id',
+      cardapio_bebidas: 'id',
+      cardapio_combos: 'id',
+      cardapio_acabou: 'id, noite_id, item_id',
+      clientes: 'id, &telefone',
+    });
   }
 
   /** Tabelas com dados da noite (e as de cadastro), na ordem em que a sincronização grava. */
@@ -85,6 +112,14 @@ export class BancoLocal extends Dexie {
       this.motoboys,
       this.config,
       this.impressoes,
+      this.cardapio_faixas,
+      this.cardapio_sabores,
+      this.cardapio_bordas,
+      this.cardapio_adicionais,
+      this.cardapio_bebidas,
+      this.cardapio_combos,
+      this.cardapio_acabou,
+      this.clientes,
     ];
   }
 

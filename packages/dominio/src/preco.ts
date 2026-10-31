@@ -100,9 +100,9 @@ function linhaDaPizza(
     extras.push({ nome: `borda ${borda.nome}`, preco: borda.preco });
   }
   for (const nome of item.adicionais ?? []) {
-    const adicional = cardapio.adicionais.itens.find((a) => normalizar(a) === normalizar(nome));
+    const adicional = acharPorNome(cardapio.adicionais, nome);
     if (!adicional) return falha('adicional_nao_encontrado', `Não achei o adicional "${nome}" no cardápio.`);
-    extras.push({ nome: `+ ${adicional}`, preco: cardapio.adicionais.preco });
+    extras.push({ nome: `+ ${adicional.nome}`, preco: adicional.preco });
   }
 
   // PED4 (provisório, pergunta 15): um desconto por pizza cobrada como tradicional, mesmo no meio a meio.

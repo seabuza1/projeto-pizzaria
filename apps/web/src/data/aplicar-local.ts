@@ -430,6 +430,93 @@ const aplicadores: { [T in TipoOperacao]: Aplicador<T> } = {
       atualizado_em: op.criada_em,
     });
   },
+  async salvar_preco_faixa(db, d) {
+    const linha = (await db.cardapio_faixas.toArray()).find((f) => f.faixa === d.faixa && f.tamanho === d.tamanho);
+    if (linha) await db.cardapio_faixas.update(linha.id, { preco: d.preco });
+  },
+  async salvar_item_cardapio(db, d, op) {
+    const comum = { id: d.item_id, ativo: d.ativo, ordem: d.ordem ?? 0, atualizado_em: op.criada_em };
+    const criado = (atual?: { criado_em: string }) => atual?.criado_em ?? op.criada_em;
+    if (d.tipo === 'sabor') {
+      const atual = await db.cardapio_sabores.get(d.item_id);
+      await db.cardapio_sabores.put({
+        ...comum,
+        nome: d.nome,
+        faixa: d.faixa,
+        ingredientes: d.ingredientes ?? null,
+        apelidos: d.apelidos ?? [],
+        criado_em: criado(atual),
+      });
+    } else if (d.tipo === 'borda') {
+      const atual = await db.cardapio_bordas.get(d.item_id);
+      await db.cardapio_bordas.put({ ...comum, nome: d.nome, preco: d.preco, criado_em: criado(atual) });
+    } else if (d.tipo === 'adicional') {
+      const atual = await db.cardapio_adicionais.get(d.item_id);
+      await db.cardapio_adicionais.put({
+        ...comum,
+        nome: d.nome,
+        preco: d.preco,
+        avulso: d.avulso ?? false,
+        criado_em: criado(atual),
+      });
+    } else if (d.tipo === 'bebida') {
+      const atual = await db.cardapio_bebidas.get(d.item_id);
+      await db.cardapio_bebidas.put({
+        ...comum,
+        nome: d.nome,
+        preco: d.preco,
+        grupo: d.grupo ?? 'diversas',
+        apelidos: d.apelidos ?? [],
+        criado_em: criado(atual),
+      });
+    } else {
+      const atual = await db.cardapio_combos.get(d.item_id);
+      await db.cardapio_combos.put({
+        ...comum,
+        codigo: d.nome,
+        itens: d.itens,
+        preco: d.preco,
+        criado_em: criado(atual),
+      });
+    }
+  },
+  async marcar_acabou(db, d, op, ctx) {
+    const atual = await db.cardapio_acabou.where('item_id').equals(d.item_id).toArray();
+    const daNoite = atual.filter((a) => a.noite_id === d.noite_id);
+    if (!d.acabou) {
+      await db.cardapio_acabou.bulkDelete(daNoite.map((a) => a.id));
+    } else if (daNoite.length === 0) {
+      await db.cardapio_acabou.put({
+        id: op.id,
+        noite_id: d.noite_id,
+        tipo: d.tipo,
+        item_id: d.item_id,
+        marcado_por: ctx.usuarioId,
+        criado_em: op.criada_em,
+        atualizado_em: op.criada_em,
+      });
+    }
+  },
+  async definir_promocao(db, d) {
+    await db.noites.update(d.noite_id, { promo_desconto: d.desconto });
+  },
+  async salvar_cliente(db, d, op, ctx) {
+    const atual = await db.clientes.where('telefone').equals(d.telefone).first();
+    // Só muda o que veio, como no servidor.
+    const campo = <K extends keyof typeof d>(k: K, antes: unknown) => (k in d ? (d[k] ?? null) : (antes ?? null));
+    await db.clientes.put({
+      id: atual?.id ?? d.cliente_id,
+      telefone: d.telefone,
+      nome: campo('nome', atual?.nome) as string | null,
+      local_link: campo('local_link', atual?.local_link) as string | null,
+      local_endereco: campo('local_endereco', atual?.local_endereco) as string | null,
+      local_referencia: campo('local_referencia', atual?.local_referencia) as string | null,
+      area_id: campo('area_id', atual?.area_id) as string | null,
+      atualizado_por: ctx.usuarioId,
+      criado_em: atual?.criado_em ?? op.criada_em,
+      atualizado_em: op.criada_em,
+    });
+  },
   async salvar_perfil(db, d) {
     await db.perfis.update(d.perfil_id, {
       ...(d.nome ? { nome: d.nome } : {}),

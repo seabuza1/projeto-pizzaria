@@ -1,5 +1,6 @@
 -- Só para o Supabase local e a bancada. Nunca em produção.
 -- Contas de teste, uma por papel em uso. Senha de todas: Mel12345teste
+-- O cardápio vem de seeds/cardapio.sql, gerado do JSON (pnpm db:cardapio).
 -- O motoboy não entra no sistema (decisão 0007): João, Pedro e Felipe são só cadastro de motoboy.
 -- Admin e gerente entram com MFA: o app autenticador de teste usa o segredo TOTP abaixo.
 
@@ -12,7 +13,8 @@ begin
       ('a0000000-0000-4000-8000-000000000001'::uuid, 'felipe@mel.test', 'Felipe', '{admin}'::public.papel[]),
       ('a0000000-0000-4000-8000-000000000002'::uuid, 'luan@mel.test', 'Luan', '{expedicao}'::public.papel[]),
       ('a0000000-0000-4000-8000-000000000003'::uuid, 'dona@mel.test', 'Dona', '{gerente}'::public.papel[]),
-      ('a0000000-0000-4000-8000-000000000006'::uuid, 'agente@mel.test', 'Balcão', '{agente}'::public.papel[])
+      ('a0000000-0000-4000-8000-000000000006'::uuid, 'agente@mel.test', 'Balcão', '{agente}'::public.papel[]),
+      ('a0000000-0000-4000-8000-000000000008'::uuid, 'atendimento@mel.test', 'Atendimento', '{atendente}'::public.papel[])
     ) as t (id, email, nome, papeis)
   loop
     insert into auth.users (

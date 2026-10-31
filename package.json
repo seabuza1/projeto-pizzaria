@@ -16,7 +16,8 @@
     "test:db": "pnpm -r --workspace-concurrency=1 --if-present test:db",
     "build": "pnpm -r --if-present build",
     "db:reset": "supabase db reset",
-    "db:types": "pnpm --filter @mel/db db:types"
+    "db:types": "pnpm --filter @mel/db db:types",
+    "db:cardapio": "pnpm --filter @mel/db db:cardapio"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",

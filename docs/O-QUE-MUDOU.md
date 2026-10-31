@@ -26,3 +26,7 @@ Escrito para o Luan e a gerente. Uma linha por mudança que aparece na tela, com
 | 31/10/2026 | "Fechar a noite" mostra o que ficou pendente (pedido sem saída, caixa sem acerto, Pix sem "caiu") antes de fechar. Se a noite de ontem ficou aberta, o painel avisa e pede para fechá-la antes de abrir a de hoje. | Luan: resolver os pendentes ou fechar mesmo assim. |
 | 31/10/2026 | Tela "Motoboys" (gerente e admin): cadastrar, corrigir o nome e marcar ativo ou inativo. Quem fica inativo some da lista "Chegou" do painel. | Gerente: cadastrar os motoboys antes da primeira noite. |
 | 31/10/2026 | "Noites antigas" no painel: a folha, o resumo e o CSV de cada noite fechada, só para leitura. Precisa de internet. | Não. |
+| 31/10/2026 | Tela "Cardápio": a gerente muda o preço de cada faixa e tamanho, cadastra itens e tira itens do cardápio. A mudança fica registrada (quem, quando, de quanto para quanto). | Gerente: conferir os preços antes da primeira noite. |
+| 31/10/2026 | "Acabou hoje" no cardápio: o atendimento, o Luan ou a gerente marcam o item que acabou; ele some só nesta noite e volta sozinho na seguinte. | Quem atende: marcar quando acabar. |
+| 31/10/2026 | Promoção da noite no painel: ao abrir a noite, o Luan ou a gerente digita o desconto (de R$ 3 a R$ 23) ou toca em "Sem promoção". Até lá, aparece "Promoção da noite não definida". | Luan ou gerente: definir a promoção toda noite. |
+| 31/10/2026 | Conta "Atendimento" para o computador do balcão. | Não. |

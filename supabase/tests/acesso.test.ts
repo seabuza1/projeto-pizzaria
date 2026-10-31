@@ -35,6 +35,15 @@ const TABELAS = [
   'operacoes',
   'eventos',
   'erros',
+  'motoboys',
+  'cardapio_faixas',
+  'cardapio_sabores',
+  'cardapio_bordas',
+  'cardapio_adicionais',
+  'cardapio_bebidas',
+  'cardapio_combos',
+  'cardapio_acabou',
+  'clientes',
 ] as const;
 
 let felipe: Sessao;

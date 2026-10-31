@@ -33,8 +33,8 @@ export interface Cardapio {
   faixas: Record<Faixa, Record<Tamanho, Centavos>>;
   sabores: readonly Sabor[];
   bordas: readonly ItemDePreco[];
-  /** Cada adicional custa o mesmo (R$ 10). */
-  adicionais: { preco: Centavos; itens: readonly string[] };
+  /** Adicionais da pizza (R$ 10 cada no cardápio impresso). */
+  adicionais: readonly ItemDePreco[];
   /** Itens avulsos com preço próprio (kit de molhos, cuba de creme de avelã). */
   outros: readonly ItemDePreco[];
   bebidas: readonly ItemDePreco[];
@@ -62,7 +62,7 @@ export function cardapioEmCentavos(json: CardapioJson): Cardapio {
     ) as Cardapio['faixas'],
     sabores: json.pizzas.sabores.map((s) => ({ nome: s.nome, faixa: s.faixa, apelidos: s.apelidos ?? [] })),
     bordas: json.bordas.map(item),
-    adicionais: { preco: emCentavos(json.adicionais.preco_cada), itens: json.adicionais.itens },
+    adicionais: json.adicionais.itens.map((nome) => item({ nome, preco: json.adicionais.preco_cada })),
     outros: json.adicionais.outros.map(item),
     bebidas: json.bebidas.map(item),
     combos: json.combos.map((c) => ({ id: c.id, itens: c.itens, preco: emCentavos(c.preco) })),
