@@ -149,7 +149,7 @@ export function aplicada(r: RespostaOperacao): RespostaOperacao {
 export async function limpar(tentativa = 1): Promise<void> {
   try {
     await sql`
-      truncate public.cardapio_acabou, public.cardapio_faixas, public.cardapio_sabores, public.cardapio_bordas,
+      truncate public.agentes, public.cardapio_acabou, public.cardapio_faixas, public.cardapio_sabores, public.cardapio_bordas,
         public.cardapio_adicionais, public.cardapio_bebidas, public.cardapio_combos, public.clientes, public.pedido_itens,
         public.eventos, public.operacoes, public.impressoes, public.sobras, public.faltas, public.acertos,
         public.pagamentos, public.saidas, public.pedidos, public.caixas, public.noites, public.erros cascade`;

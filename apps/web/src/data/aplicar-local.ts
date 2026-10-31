@@ -416,6 +416,7 @@ const aplicadores: { [T in TipoOperacao]: Aplicador<T> } = {
       id: d.impressao_id,
       noite_id: d.noite_id ?? null,
       caixa_id: d.caixa_id ?? null,
+      pedido_id: d.pedido_id ?? null,
       tipo: d.tipo,
       impressora: d.impressora ?? 'balcao',
       conteudo: d.conteudo,

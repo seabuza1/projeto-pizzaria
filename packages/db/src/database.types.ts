@@ -108,6 +108,48 @@ export type Database = {
           },
         ];
       };
+      agentes: {
+        Row: {
+          atualizado_em: string;
+          criado_em: string;
+          erro: string | null;
+          id: string;
+          impressora: string | null;
+          impressora_ok: boolean;
+          versao: string | null;
+          visto_em: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          atualizado_em?: string;
+          criado_em?: string;
+          erro?: string | null;
+          id: string;
+          impressora?: string | null;
+          impressora_ok?: boolean;
+          versao?: string | null;
+          visto_em?: string;
+        };
+        Update: {
+          atualizado_em?: string;
+          criado_em?: string;
+          erro?: string | null;
+          id?: string;
+          impressora?: string | null;
+          impressora_ok?: boolean;
+          versao?: string | null;
+          visto_em?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'agentes_id_fkey';
+            columns: ['id'];
+            isOneToOne: true;
+            referencedRelation: 'perfis';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       areas: {
         Row: {
           ativa: boolean;
@@ -713,6 +755,7 @@ export type Database = {
           impressora: string;
           noite_id: string | null;
           pedida_por: string | null;
+          pedido_id: string | null;
           tentativas: number;
           tipo: Database['public']['Enums']['tipo_impressao'];
         };
@@ -729,6 +772,7 @@ export type Database = {
           impressora?: string;
           noite_id?: string | null;
           pedida_por?: string | null;
+          pedido_id?: string | null;
           tentativas?: number;
           tipo: Database['public']['Enums']['tipo_impressao'];
         };
@@ -744,6 +788,7 @@ export type Database = {
           impressora?: string;
           noite_id?: string | null;
           pedida_por?: string | null;
+          pedido_id?: string | null;
           tentativas?: number;
           tipo?: Database['public']['Enums']['tipo_impressao'];
         };
@@ -767,6 +812,13 @@ export type Database = {
             columns: ['pedida_por'];
             isOneToOne: false;
             referencedRelation: 'perfis';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'impressoes_pedido_id_fkey';
+            columns: ['pedido_id'];
+            isOneToOne: false;
+            referencedRelation: 'pedidos';
             referencedColumns: ['id'];
           },
         ];
@@ -1448,6 +1500,7 @@ export type Database = {
     Functions: {
       aplicar_operacao: { Args: { op: Json }; Returns: Json };
       area_sugerida: { Args: { p_codigo: string }; Returns: string };
+      batimento_agente: { Args: { p: Json }; Returns: undefined };
       registrar_erro: { Args: { p_erro: Json }; Returns: undefined };
     };
     Enums: {
@@ -1461,7 +1514,7 @@ export type Database = {
       origem_pedido: 'papel' | 'whatsapp' | 'balcao' | 'mesa' | 'link';
       papel: 'admin' | 'gerente' | 'expedicao' | 'atendente' | 'motoboy' | 'cozinha' | 'garcom' | 'agente';
       tamanho_pizza: 'B' | 'P' | 'M' | 'G';
-      tipo_impressao: 'recibo_acerto' | 'folha_noite';
+      tipo_impressao: 'recibo_acerto' | 'folha_noite' | 'comanda';
       tipo_pedido: 'entrega' | 'retirada' | 'mesa';
     };
     CompositeTypes: {
@@ -1582,7 +1635,7 @@ export const Constants = {
       origem_pedido: ['papel', 'whatsapp', 'balcao', 'mesa', 'link'],
       papel: ['admin', 'gerente', 'expedicao', 'atendente', 'motoboy', 'cozinha', 'garcom', 'agente'],
       tamanho_pizza: ['B', 'P', 'M', 'G'],
-      tipo_impressao: ['recibo_acerto', 'folha_noite'],
+      tipo_impressao: ['recibo_acerto', 'folha_noite', 'comanda'],
       tipo_pedido: ['entrega', 'retirada', 'mesa'],
     },
   },

@@ -92,10 +92,11 @@ const dadosPorTipo = {
   marcar_pix: z.object({ pagamento_id: id, confirmado: z.boolean(), motivo: motivo.optional() }),
   pedir_impressao: z.object({
     impressao_id: id,
-    tipo: z.enum(['recibo_acerto', 'folha_noite']),
+    tipo: z.enum(['recibo_acerto', 'folha_noite', 'comanda']),
     conteudo: z.string().min(1).max(20000),
     noite_id: id.optional(),
     caixa_id: id.optional(),
+    pedido_id: id.optional(),
     impressora: z.string().max(40).optional(),
     impressa: z.boolean().optional(),
   }),
@@ -106,10 +107,11 @@ const dadosPorTipo = {
   }),
   registrar_impressao_local: z.object({
     impressao_id: id,
-    tipo: z.enum(['recibo_acerto', 'folha_noite']),
+    tipo: z.enum(['recibo_acerto', 'folha_noite', 'comanda']),
     conteudo: z.string().min(1).max(20000),
     noite_id: id.optional(),
     caixa_id: id.optional(),
+    pedido_id: id.optional(),
   }),
   salvar_area: z.object({
     area_id: id,
