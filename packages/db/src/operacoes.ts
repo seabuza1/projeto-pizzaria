@@ -30,6 +30,14 @@ const dadosPorTipo = {
     diaria: centavos.optional(),
   }),
   editar_caixa: z.object({ caixa_id: id, caixa_inicial: centavos.optional(), diaria: centavos.optional() }),
+  mudar_ordem_caixa: z.object({ caixa_id: id, ordem: z.number().int().min(1).max(99) }),
+  despachar: z.object({
+    caixa_id: id,
+    saidas: z
+      .array(z.object({ pedido_id: id, saida_id: id }))
+      .min(1)
+      .max(10),
+  }),
   lancar_saida: z.object({
     caixa_id: id,
     pedido_id: id,
@@ -62,7 +70,7 @@ const dadosPorTipo = {
     conta: z.record(z.string(), z.unknown()).optional(),
   }),
   reabrir_acerto: z.object({ caixa_id: id, motivo }),
-  marcar_pix: z.object({ pagamento_id: id, confirmado: z.boolean() }),
+  marcar_pix: z.object({ pagamento_id: id, confirmado: z.boolean(), motivo: motivo.optional() }),
   pedir_impressao: z.object({
     impressao_id: id,
     tipo: z.enum(['recibo_acerto', 'folha_noite']),
@@ -115,6 +123,37 @@ const dadosPorTipo = {
 } as const;
 
 export type TipoOperacao = keyof typeof dadosPorTipo;
+
+/**
+ * PADROES, Módulos removíveis (tudo tem dono): a funcionalidade de cada operação.
+ * "nucleo" é das tabelas que todos usam e nunca sai junto com um módulo.
+ */
+export const donoDaOperacao: Record<TipoOperacao, string> = {
+  abrir_noite: 'expedicao',
+  fechar_noite: 'expedicao',
+  reabrir_noite: 'expedicao',
+  abrir_caixa: 'expedicao',
+  editar_caixa: 'expedicao',
+  mudar_ordem_caixa: 'expedicao',
+  despachar: 'expedicao',
+  lancar_saida: 'expedicao',
+  cancelar_saida: 'expedicao',
+  mudar_estado_saida: 'expedicao',
+  trocar_pagamento: 'expedicao',
+  sair_de_novo: 'expedicao',
+  conferir_papel: 'expedicao',
+  informar_contado: 'expedicao',
+  confirmar_acerto: 'expedicao',
+  reabrir_acerto: 'expedicao',
+  marcar_pix: 'expedicao',
+  pedir_impressao: 'nucleo',
+  atualizar_impressao: 'nucleo',
+  registrar_impressao_local: 'nucleo',
+  salvar_area: 'nucleo',
+  salvar_config: 'nucleo',
+  salvar_perfil: 'nucleo',
+  salvar_motoboy: 'motoboys',
+};
 
 /** Versão do formato das operações. O servidor aceita esta e a anterior (interno.versao_op_atual). */
 export const VERSAO_OP = 1;

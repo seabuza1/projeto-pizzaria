@@ -2,7 +2,15 @@
 import { execFileSync } from 'node:child_process';
 import { createHmac, randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { type DadosDe, type Database, type RespostaOperacao, type TipoOperacao, VERSAO_OP } from '@mel/db';
+import {
+  type DadosDe,
+  type Database,
+  entradaDoCaixa,
+  type RespostaOperacao,
+  type TipoOperacao,
+  VERSAO_OP,
+} from '@mel/db';
+import { calcularAcerto } from '@mel/dominio';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import postgres from 'postgres';
 
@@ -31,7 +39,7 @@ function carregarAmbiente(): Ambiente {
 
 export const ambiente = carregarAmbiente();
 
-// Conexão direta só para limpar e conferir. Nunca é usada para escrever dados de teste.
+// Conexão direta só para limpar e conferir. A única escrita é o pedido do balcão (pedidoDoBalcao).
 export const sql = postgres(ambiente.dbUrl, { max: 2, onnotice: () => {} });
 
 export const SENHA = 'Mel12345teste';
@@ -212,4 +220,56 @@ export async function versaoDoCaixa(caixaId: string): Promise<number> {
 export async function pedidoDaSaida(saidaId: string): Promise<string> {
   const [linha] = await sql<{ pedido_id: string }[]>`select pedido_id from public.saidas where id = ${saidaId}`;
   return linha?.pedido_id ?? '';
+}
+
+/**
+ * Pedido do balcão, já autorizado, com os pagamentos previstos na comanda (PAG3).
+ * Até a tela de pedido existir (F2, etapa 7 do MVP), ele nasce direto no banco.
+ */
+export async function pedidoDoBalcao(
+  noiteId: string,
+  codigo: string,
+  totalReais: number,
+  areaId: string,
+  pagamentos: ReturnType<typeof pg>[],
+): Promise<string> {
+  const pedidoId = novoId();
+  await sql`insert into public.pedidos (id, noite_id, codigo, origem, tipo, area_id, total)
+    values (${pedidoId}, ${noiteId}, ${codigo}, 'whatsapp', 'entrega', ${areaId}, ${Math.round(totalReais * 100)})`;
+  for (const p of pagamentos) {
+    await sql`insert into public.pagamentos (id, noite_id, pedido_id, forma, valor, troco_pix)
+      values (${p.id}, ${noiteId}, ${pedidoId}, ${p.forma}, ${p.valor}, ${p.troco_pix ?? 0})`;
+  }
+  return pedidoId;
+}
+
+/** Confirma o acerto com a conta do domínio (ACE9). O dinheiro contado já tem de estar informado. */
+export async function confirmarAcerto(quem: Sessao, caixaId: string) {
+  const [caixa] =
+    await sql`select id, caixa_inicial, diaria, dinheiro_contado from public.caixas where id = ${caixaId}`;
+  const linhas = {
+    pedidos: await sql`select id, codigo from public.pedidos`,
+    saidas: await sql`select * from public.saidas`,
+    pagamentos: await sql`select * from public.pagamentos`,
+  };
+  // biome-ignore lint/suspicious/noExplicitAny: linhas cruas do postgres
+  const conta = calcularAcerto(entradaDoCaixa(caixa as any, linhas as any));
+  const l = conta.liquidacao;
+  if (!l) throw new Error('sem dinheiro contado');
+  return quem.op('confirmar_acerto', {
+    caixa_id: caixaId,
+    acerto_id: novoId(),
+    versao_esperada: await versaoDoCaixa(caixaId),
+    esperado: {
+      devolver: conta.devolver,
+      maquininha: conta.maquininha,
+      receber: conta.receber,
+      dinheiroContado: l.dinheiroContado,
+      pagar: l.pagar,
+      doCaixaDele: l.doCaixaDele,
+      retiradoCaixaEmpresa: l.retiradoCaixaEmpresa,
+      vaiParaEmpresa: l.vaiParaEmpresa,
+    },
+    conta: { porArea: conta.porArea },
+  });
 }

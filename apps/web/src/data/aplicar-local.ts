@@ -25,11 +25,48 @@ export async function saidaMaisRecente(db: BancoLocal, pedidoId: string): Promis
   return ativas(await db.saidas.where('pedido_id').equals(pedidoId).toArray()).at(-1);
 }
 
+// A comanda de papel sem saída foi desfeita; o pedido do balcão sem saída volta para o despacho.
 async function atualizarEstadoPedido(db: BancoLocal, pedidoId: string) {
+  const pedido = await db.pedidos.get(pedidoId);
+  if (!pedido || pedido.estado === 'cancelado') return;
   const saidas = ativas(await db.saidas.where('pedido_id').equals(pedidoId).toArray());
   const estado =
-    saidas.length === 0 ? 'cancelado' : saidas.some((s) => s.estado === 'entregue') ? 'entregue' : 'aberto';
+    saidas.length === 0
+      ? pedido.origem === 'papel'
+        ? 'cancelado'
+        : 'aberto'
+      : saidas.some((s) => s.estado === 'entregue')
+        ? 'entregue'
+        : 'aberto';
   await db.pedidos.update(pedidoId, { estado });
+}
+
+function novaSaida(
+  pedido: Pedido,
+  caixa: { id: string; noite_id: string; motoboy_id: string },
+  area: { id: string; taxa: number },
+  saidaId: string,
+  hora: string,
+): Saida {
+  return {
+    id: saidaId,
+    noite_id: caixa.noite_id,
+    pedido_id: pedido.id,
+    caixa_id: caixa.id,
+    motoboy_id: caixa.motoboy_id,
+    area_id: area.id,
+    taxa: area.taxa,
+    estado: 'em_rota',
+    saiu_em: hora,
+    entregue_em: null,
+    voltou_em: null,
+    papel_conferido: false,
+    cancelada_em: null,
+    cancelada_por: null,
+    motivo_cancelamento: null,
+    criado_em: hora,
+    atualizado_em: hora,
+  };
 }
 
 // Conflitos e concorrência: as mesmas operações que sobem a versão no servidor sobem aqui.
@@ -132,6 +169,37 @@ const aplicadores: { [T in TipoOperacao]: Aplicador<T> } = {
     });
     await tocarCaixa(db, d.caixa_id, ctx);
   },
+  async mudar_ordem_caixa(db, d, _op, ctx) {
+    const caixa = await db.caixas.get(d.caixa_id);
+    if (!caixa) return;
+    const outros = (await db.caixas.where('noite_id').equals(caixa.noite_id).toArray())
+      .filter((c) => c.id !== caixa.id)
+      .sort((a, b) => a.ordem_chegada - b.ordem_chegada);
+    outros.splice(d.ordem - 1, 0, caixa);
+    for (const [i, c] of outros.entries()) {
+      await db.caixas.update(c.id, { ordem_chegada: i + 1 });
+      await tocarCaixa(db, c.id, ctx);
+    }
+  },
+  async despachar(db, d, op, ctx) {
+    const caixa = await db.caixas.get(d.caixa_id);
+    if (!caixa) return;
+    for (const { pedido_id, saida_id } of d.saidas) {
+      const pedido = await db.pedidos.get(pedido_id);
+      const area = pedido?.area_id ? await db.areas.get(pedido.area_id) : undefined;
+      if (!pedido || !area || (await saidaMaisRecente(db, pedido.id))) continue;
+      await db.saidas.put(novaSaida(pedido, caixa, area, saida_id, op.criada_em));
+      // Os pagamentos previstos passam a ser da saída; o Pix antecipado fica no pedido.
+      for (const p of await db.pagamentos.where('pedido_id').equals(pedido.id).toArray()) {
+        if (!p.saida_id && !p.anulado_em && p.forma !== 'pix_antecipado') {
+          await db.pagamentos.update(p.id, { saida_id });
+        }
+      }
+      await atualizarEstadoPedido(db, pedido.id);
+      await tocarPedido(db, pedido.id, ctx);
+    }
+    await tocarCaixa(db, caixa.id, ctx);
+  },
 
   async lancar_saida(db, d, op, ctx) {
     const caixa = await db.caixas.get(d.caixa_id);
@@ -155,25 +223,7 @@ const aplicadores: { [T in TipoOperacao]: Aplicador<T> } = {
       atualizado_em: op.criada_em,
     };
     await db.pedidos.put(pedido);
-    await db.saidas.put({
-      id: d.saida_id,
-      noite_id: caixa.noite_id,
-      pedido_id: pedido.id,
-      caixa_id: caixa.id,
-      motoboy_id: caixa.motoboy_id,
-      area_id: area.id,
-      taxa: area.taxa,
-      estado: 'em_rota',
-      saiu_em: op.criada_em,
-      entregue_em: null,
-      voltou_em: null,
-      papel_conferido: false,
-      cancelada_em: null,
-      cancelada_por: null,
-      motivo_cancelamento: null,
-      criado_em: op.criada_em,
-      atualizado_em: op.criada_em,
-    });
+    await db.saidas.put(novaSaida(pedido, caixa, area, d.saida_id, op.criada_em));
     await db.pagamentos.bulkPut(novosPagamentos(pedido, d.saida_id, d.pagamentos, false, op.criada_em));
     await tocarCaixa(db, caixa.id, ctx);
   },
@@ -190,7 +240,8 @@ const aplicadores: { [T in TipoOperacao]: Aplicador<T> } = {
       motivo_cancelamento: motivo,
     });
     const doPedido = await db.pagamentos.where('pedido_id').equals(saida.pedido_id).toArray();
-    if (!anterior) {
+    const pedido = await db.pedidos.get(saida.pedido_id);
+    if (!anterior && pedido?.origem === 'papel') {
       await anular(
         db,
         doPedido.filter((p) => !p.anulado_em).map((p) => p.id),
@@ -199,8 +250,9 @@ const aplicadores: { [T in TipoOperacao]: Aplicador<T> } = {
         ctx,
       );
     } else {
+      // Com saída anterior, os pagamentos voltam para ela; sem, o pedido do balcão volta para o despacho.
       for (const p of doPedido.filter((x) => x.saida_id === saida.id && !x.anulado_em)) {
-        await db.pagamentos.update(p.id, { saida_id: anterior.id });
+        await db.pagamentos.update(p.id, { saida_id: anterior?.id ?? null });
       }
     }
     await atualizarEstadoPedido(db, saida.pedido_id);

@@ -1,14 +1,13 @@
 // Testes de acesso: uma conta de cada papel em uso (admin, gerente, expedicao, agente).
 // O motoboy não tem login: é um cadastro (decisão 0007).
 
-import { entradaDoCaixa } from '@mel/db';
-import { calcularAcerto } from '@mel/dominio';
 import { beforeAll, describe, expect, it } from 'vitest';
 import {
   abrirNoite,
   aplicada,
   areas,
   clienteAnonimo,
+  confirmarAcerto,
   entrar,
   lancar,
   limpar,
@@ -50,36 +49,6 @@ let caixas: Record<string, string>;
 async function umaSaida(): Promise<string> {
   const [s] = await sql<{ id: string }[]>`select id from public.saidas limit 1`;
   return s?.id ?? '';
-}
-
-async function conferirAcerto(caixaId: string, quem: Sessao = luan) {
-  const [caixa] =
-    await sql`select id, caixa_inicial, diaria, dinheiro_contado from public.caixas where id = ${caixaId}`;
-  const linhas = {
-    pedidos: await sql`select id, codigo from public.pedidos`,
-    saidas: await sql`select * from public.saidas`,
-    pagamentos: await sql`select * from public.pagamentos`,
-  };
-  // biome-ignore lint/suspicious/noExplicitAny: linhas cruas do postgres
-  const conta = calcularAcerto(entradaDoCaixa(caixa as any, linhas as any));
-  const l = conta.liquidacao;
-  if (!l) throw new Error('sem dinheiro contado');
-  return quem.op('confirmar_acerto', {
-    caixa_id: caixaId,
-    acerto_id: novoId(),
-    versao_esperada: await versaoDoCaixa(caixaId),
-    esperado: {
-      devolver: conta.devolver,
-      maquininha: conta.maquininha,
-      receber: conta.receber,
-      dinheiroContado: l.dinheiroContado,
-      pagar: l.pagar,
-      doCaixaDele: l.doCaixaDele,
-      retiradoCaixaEmpresa: l.retiradoCaixaEmpresa,
-      vaiParaEmpresa: l.vaiParaEmpresa,
-    },
-    conta: { porArea: conta.porArea },
-  });
 }
 
 beforeAll(async () => {
@@ -234,7 +203,7 @@ describe('acerto (ACE9)', () => {
   });
 
   it('depois de confirmado, ninguém mexe no caixa nem nas saídas', async () => {
-    aplicada(await conferirAcerto(caixas.joao ?? ''));
+    aplicada(await confirmarAcerto(luan, caixas.joao ?? ''));
     const [saida] = await sql`select id from public.saidas where caixa_id = ${caixas.joao ?? ''} limit 1`;
     const r = await luan.op('mudar_estado_saida', { saida_id: saida?.id, estado: 'voltou' });
     expect(r.status).toBe('recusada');
