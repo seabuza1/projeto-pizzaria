@@ -52,3 +52,24 @@ jobs:
         run: |
           pnpm db:types
           git diff --exit-code packages/db/src/database.types.ts
+
+  seguranca:
+    name: Segredos e dependências
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Varredura de segredos (gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: pnpm/action-setup@v5
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Dependências com falha conhecida (alta ou crítica)
+        run: pnpm audit --audit-level high
