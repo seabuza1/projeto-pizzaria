@@ -1,0 +1,20 @@
+{
+  "name": "@mel/agente",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node --env-file-if-exists=.env src/principal.ts",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:db": "MEL_TESTE_BANCO=1 vitest run src/fila.banco.test.ts"
+  },
+  "dependencies": {
+    "@mel/dominio": "workspace:*",
+    "@supabase/supabase-js": "2.118.0",
+    "receiptline": "4.0.4"
+  },
+  "devDependencies": {
+    "@mel/db": "workspace:*"
+  }
+}

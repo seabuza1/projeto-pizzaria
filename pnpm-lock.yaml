@@ -33,6 +33,22 @@ importers:
         specifier: 5.0.5
         version: 5.0.5(@types/node@26.6.5)(@vitest/coverage-v8@5.0.5)(vite@8.3.5(@types/node@26.6.5)(jiti@2.7.0)(terser@5.51.2))
 
+  apps/agente:
+    dependencies:
+      '@mel/dominio':
+        specifier: workspace:*
+        version: link:../../packages/dominio
+      '@supabase/supabase-js':
+        specifier: 2.118.0
+        version: 2.118.0
+      receiptline:
+        specifier: 4.0.4
+        version: 4.0.4
+    devDependencies:
+      '@mel/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+
   apps/web:
     dependencies:
       '@mel/db':
