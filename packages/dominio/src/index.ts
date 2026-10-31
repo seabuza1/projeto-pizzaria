@@ -1,4 +1,5 @@
 export * from './acerto';
+export * from './cardapio';
 export * from './despacho';
 export * from './dinheiro';
 export * from './entrada';
@@ -9,5 +10,6 @@ export * from './integracoes/impressora';
 export * from './integracoes/pix';
 export * from './noite';
 export * from './pagamento';
+export * from './preco';
 export * from './resultado';
 export * from './resumo';

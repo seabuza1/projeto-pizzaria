@@ -165,6 +165,7 @@ Há computador e impressora no balcão (Felipe, 30/10). Falta saber o modelo e a
 13. Há desconto, cupom ou fidelidade? Quem decide a promoção da noite?
 14. Quantas mesas, garçons e pessoas na cozinha? Como a conta da mesa é fechada?
 15. Promoção: o desconto vale por pizza? Vale no meio a meio de duas tradicionais?
+20. Meio a meio com preço empatado entre faixas (ex.: G ½ Calabresa, tradicional, ½ Brigadeiro, doce, as duas a R$ 73): a pizza conta como tradicional para a promoção? Por ora, o sistema usa a faixa do primeiro sabor (`preco.ts`).
 16. ~~Como a comanda diferencia Pix já pago de Pix na hora?~~ Resolvida (30/10): a comanda impressa diz "PIX PAGO" ou "PIX: CONFERIR".
 
 **Mais à frente:**
