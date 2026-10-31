@@ -169,15 +169,32 @@ Um app web instalável (PWA) em **TypeScript**, usado no balcão (atendimento, L
 
 ## Hospedagem e custos mensais
 
+Levantado em 31/10/2026, com o dólar do cartão em cerca de R$ 5,85 (comercial R$ 5,44 + IOF de 3,5% + spread de uns 4%).
+
+**Por mês (MVP):**
+
 | Item | Escolha | Custo |
 |---|---|---|
-| Front (apps/web e apps/cliente) | Cloudflare Pages | R$ 0 |
-| Supabase | Free para desenvolver. Pro antes da primeira noite real, porque o Free pausa após 1 semana sem uso | US$ 25 (uns R$ 140) |
-| Servidor de integrações (só se o Pix exigir mTLS) | Fly.io, `gru`, shared-cpu-1x | Uns US$ 3,54 |
-| Domínio | `.com.br` no registro.br | Uns R$ 40 por ano |
-| NFC-e por API (se o PDV emitir) | Focus NFe, plano Retail | Uns R$ 145 para 2.000 notas |
-| Pix automático | Tarifa do provedor | 0,9% a 1,2% por Pix antecipado |
-| Hardware | Impressora térmica sem fio (Wi-Fi de fábrica, ou de rede com ponte Wi-Fi); o computador do balcão já existe | Cerca de R$ 680 por impressora de rede, mais a ponte Wi-Fi; uma vez |
+| Banco, login e tempo real | Supabase Pro, um projeto só (produção) | US$ 25 (uns R$ 146) |
+| Front | Cloudflare Pages | R$ 0 |
+| Código e CI | GitHub privado; o plano grátis inclui US$ 12 por mês de Actions (cerca de 2.000 minutos Linux) | R$ 0 |
+| Monitoramento | Plano grátis que permita uso comercial (StatusCake ou HetrixTools; o grátis do UptimeRobot não permite) | R$ 0 |
+| Bobinas térmicas 80 mm × 40 m | 9 a 12 por mês (70 a 100 comandas de uns 20 cm e os recibos), caixa com 30 por R$ 114 a R$ 130 | R$ 35 a R$ 52 |
+| Domínio (opcional) | `.com.br` no registro.br; sem ele, o endereço `.pages.dev` funciona | R$ 40 por ano (R$ 3,33) |
+
+**Custos que só aparecem se:**
+- **projeto de teste na mesma organização Pro:** + US$ 10 por mês. Para evitar, teste no Supabase local ou numa organização Free separada;
+- **integrações (sem data):** Pix automático (0,9% a 1,45% por Pix), NFC-e por API e o Fly.io só entram com a sua fase.
+
+**Por que o Pro e não o Free:** o Free não tem backup diário (o Pro guarda 7 dias), limita o banco a 500 MB e pausa o projeto depois de 1 semana parado (férias da casa). Para dado de dinheiro, o backup diário vale os US$ 25.
+
+**Uma vez:**
+
+| Item | Custo |
+|---|---|
+| Impressora térmica de rede (Elgin i9 Full USB/Ethernet) | R$ 821,60 no Pix; R$ 0 se a impressora atual tiver porta de rede |
+| Nobreak 1200 VA (Intelbras Attiv) | R$ 629 a R$ 699 |
+| Ponte Wi-Fi (mini roteador em modo cliente) | Só se a impressora não puder ir por cabo até o roteador; preço a cotar |
 
 ## Repositório
 
@@ -233,6 +250,15 @@ Dinheiro sempre em centavos (`integer`). Os IDs são `uuid` gerados no aparelho.
 ## Fontes
 
 - [Supabase: preços e pausa do plano grátis](https://supabase.com/pricing)
+- [Supabase: Free x Pro (backups, limites)](https://supabase.com/pricing.md)
+- [Dólar de 30/10/2026: PTAX R$ 5,4212, à vista perto de R$ 5,44](https://boca.com.br/economia/dolar/cotacao-dolar-hoje-31-10)
+- [IOF de 3,5% em compras internacionais com cartão (2026)](https://toexceed.com.br/blog/2026/09/10/iof-sobre-compra-no-exterior-quanto-e-como-calcular-e-quando-e-cobrado/)
+- [Registro.br: R$ 40 por ano](https://registro.br/)
+- [GitHub Actions: crédito do plano grátis](https://docs.github.com/en/billing/concepts/product-billing/github-actions)
+- [UptimeRobot grátis sem uso comercial e alternativas](https://dev.to/velprove/uptimerobot-commercial-use-free-alternatives-for-business-sites-in-2026-5d75)
+- [Bobinas 80 × 40, caixa com 30: R$ 114](https://www.automatizando.com.br/suprimentos/bobinas-termicas/caixa-de-bobina-termica-80mmx40m-30-unidades) e [R$ 130](https://www.localautomacao.com.br/caixa-de-bobina-termica-80mmx40m-30-unidades)
+- [Elgin i9 Full USB/Ethernet: R$ 821,60 no Pix](https://www.kabum.com.br/produto/998141/impressora-de-cupons-elgin-i9-full-usb-ethernet)
+- [Nobreak Intelbras Attiv 1200 VA: R$ 699](https://www.kabum.com.br/produto/300777/nobreak-intelbras-attiv-1200va-entrada-110-220v-e-saida-110v-bivolt-4822209)
 - [Supabase Edge Functions e mTLS com a Efí (discussão)](https://github.com/orgs/supabase/discussions/48894)
 - [Efí: webhooks Pix e mTLS](https://dev.efipay.com.br/en/docs/api-pix/webhooks/)
 - [Vercel: plano Hobby só para uso não comercial](https://vercel.com/docs/plans/hobby-plan)
