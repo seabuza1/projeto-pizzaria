@@ -8,15 +8,7 @@ import {
   saidaParaDominio,
   type TipoOperacao,
 } from '@mel/db';
-import {
-  type ContaAcerto,
-  calcularAcerto,
-  centavos,
-  type Forma,
-  type NoiteDoHistorico,
-  pagamentosDaSaida,
-  ZERO,
-} from '@mel/dominio';
+import { type ContaAcerto, calcularAcerto, type Forma, pagamentosDaSaida } from '@mel/dominio';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useSyncExternalStore } from 'react';
 import { v7 as uuidv7 } from 'uuid';
@@ -364,18 +356,16 @@ export const acoes = {
       pagamentos: paraLinhasDb(linhas),
     });
   },
-  async sairDeNovo(saidaAnteriorId: string, opcoes: { caixaId?: string; areaId?: string } = {}) {
+  async sairDeNovo(saidaAnteriorId: string, opcoes: { caixaId: string; areaId?: string }) {
     const saidaId = novoId();
     await executar('sair_de_novo', {
       saida_id: saidaId,
       saida_anterior_id: saidaAnteriorId,
-      ...(opcoes.caixaId ? { caixa_id: opcoes.caixaId } : {}),
+      caixa_id: opcoes.caixaId,
       ...(opcoes.areaId ? { area_id: opcoes.areaId } : {}),
     });
     return saidaId;
   },
-  avisarRetorno: (caixaId: string, minutos: number | null) =>
-    executar('avisar_retorno', { caixa_id: caixaId, minutos }),
   async abrirNoite() {
     const noiteId = novoId();
     await executar('abrir_noite', { noite_id: noiteId });
@@ -461,46 +451,6 @@ export async function areaSugerida(codigo: string): Promise<string | null> {
   } catch {
     return null;
   }
-}
-
-export interface NoiteHistorico extends NoiteDoHistorico {
-  caixaId: string;
-  confirmadoPor: string | null;
-  confirmadoEm: string | null;
-}
-
-/** Histórico do motoboy: noites dele com o acerto congelado. Guardado para ver offline. */
-export async function carregarHistorico(motoboyId: string): Promise<NoiteHistorico[]> {
-  const { data, error } = await supabase
-    .from('caixas')
-    .select('id, diaria, noites(data), acertos(conta, reaberto_em, confirmado_por, confirmado_em)')
-    .eq('motoboy_id', motoboyId);
-  if (error || !data) return (await banco.lerMeta<NoiteHistorico[]>(`historico-${motoboyId}`)) ?? [];
-  const itens: NoiteHistorico[] = data.flatMap((c) => {
-    const data = c.noites?.data;
-    if (!data) return [];
-    const acerto = c.acertos.find((a) => !a.reaberto_em);
-    const conta = acerto?.conta as unknown as ContaAcerto | undefined;
-    return [
-      {
-        caixaId: c.id,
-        data,
-        confirmadoPor: acerto?.confirmado_por ?? null,
-        confirmadoEm: acerto?.confirmado_em ?? null,
-        conta: conta ?? {
-          diaria: centavos(c.diaria),
-          taxas: ZERO,
-          entregues: 0,
-          voltaram: 0,
-          porArea: {},
-          liquidacao: null,
-        },
-      },
-    ];
-  });
-  itens.sort((a, b) => b.data.localeCompare(a.data));
-  await banco.gravarMeta(`historico-${motoboyId}`, itens);
-  return itens;
 }
 
 /** Recusas recentes do servidor, para a tela mostrar o motivo. */

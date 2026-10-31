@@ -2,11 +2,11 @@
 // Tocar na forma já lança. Com um caixa só, o motoboy já vem escolhido.
 import { centavos, type Forma, lerValor, validarLancamento } from '@mel/dominio';
 import { useEffect, useRef, useState } from 'react';
-import { acoes, areaSugerida, type LinhaPagamento, type Pedido, useAreas } from '../data/repo';
-import { mostrarAviso } from './avisos';
+import { mostrarAviso } from '../../compartilhado/avisos';
+import { marcarEdicao } from '../../compartilhado/edicao';
+import { Botao, Chip, curto, Folha, NOME_FORMA } from '../../compartilhado/ui';
+import { acoes, areaSugerida, type LinhaPagamento, type Pedido, useAreas } from '../../data/repo';
 import { EditorPagamentos } from './EditorPagamentos';
-import { marcarEdicao } from './edicao';
-import { Botao, Chip, curto, Folha, NOME_FORMA } from './ui';
 
 const FORMAS: Forma[] = ['dinheiro', 'cartao', 'pix_maquininha', 'pix_antecipado'];
 

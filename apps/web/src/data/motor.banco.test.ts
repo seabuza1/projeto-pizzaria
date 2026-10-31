@@ -1,6 +1,5 @@
 // Integração com o Supabase local (supabase start). Roda com `pnpm --filter @mel/web test:db`.
-// "Pronto quando" da F1: em modo avião o motoboy lança e marca entregas; com a internet de volta,
-// tudo sobe sozinho e nada duplica.
+// Fila offline: em modo avião o painel continua lançando; com a internet de volta, tudo sobe e nada duplica.
 import 'fake-indexeddb/auto';
 import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
@@ -44,7 +43,8 @@ const fetchComModoAviao: typeof fetch = (entrada, init) =>
   rede.fora ? Promise.reject(new TypeError('fetch failed')) : fetch(entrada, init);
 
 let luan: Awaited<ReturnType<typeof cliente>>;
-let joao: Awaited<ReturnType<typeof cliente>>;
+let balcao: Awaited<ReturnType<typeof cliente>>;
+let joaoId: string;
 let banco: BancoLocal;
 let motor: Motor;
 let caixaId: string;
@@ -53,8 +53,10 @@ let barra: string;
 const novoId = () => randomUUID();
 
 beforeAll(async () => {
+  // O aparelho do Luan fica em modo avião; outra sessão dele confere o servidor.
   luan = await cliente('luan@mel.test');
-  joao = await cliente('joao@mel.test', fetchComModoAviao);
+  balcao = await cliente('luan@mel.test', fetchComModoAviao);
+  joaoId = 'a0000000-0000-4000-8000-000000000004';
   // Começa de uma noite limpa (só no banco local de testes).
   execFileSync(
     'psql',
@@ -68,14 +70,14 @@ beforeAll(async () => {
   const noiteId = novoId();
   caixaId = novoId();
   expect((await op(luan.c, 'abrir_noite', { noite_id: noiteId })).status).toBe('aplicada');
-  expect((await op(luan.c, 'abrir_caixa', { caixa_id: caixaId, noite_id: noiteId, motoboy_id: joao.id })).status).toBe(
+  expect((await op(luan.c, 'abrir_caixa', { caixa_id: caixaId, noite_id: noiteId, motoboy_id: joaoId })).status).toBe(
     'aplicada',
   );
   barra = (await luan.c.from('areas').select('id').eq('nome', 'Barra').single()).data?.id ?? '';
 
   banco = new BancoLocal(`teste-${novoId()}`);
-  motor = new Motor({ supabase: joao.c, banco, aparelho: 'teste' });
-  await motor.iniciar(joao.id);
+  motor = new Motor({ supabase: balcao.c, banco, aparelho: 'teste' });
+  await motor.iniciar(balcao.id);
 });
 
 afterAll(async () => {
@@ -135,7 +137,7 @@ describe('fila offline', () => {
   });
 
   it('a confirmação que se perdeu no caminho é reenviada sem duplicar', async () => {
-    const ultima = (await joao.c.from('operacoes').select('*').order('criado_em', { ascending: false }).limit(1))
+    const ultima = (await balcao.c.from('operacoes').select('*').order('criado_em', { ascending: false }).limit(1))
       .data?.[0];
     // Simula: o servidor aplicou, mas a resposta não chegou ao aparelho.
     await banco.fila.add({
@@ -147,15 +149,15 @@ describe('fila offline', () => {
       seq: 99,
       tentativas: 0,
     });
-    const repetida = (await joao.c.from('operacoes').select('id')).data?.length;
+    const repetida = (await balcao.c.from('operacoes').select('id')).data?.length;
     await motor.enviar();
     expect(await banco.fila.count()).toBe(0);
-    expect((await joao.c.from('operacoes').select('id')).data?.length).toBe(repetida);
+    expect((await balcao.c.from('operacoes').select('id')).data?.length).toBe(repetida);
     expect((await luan.c.from('pedidos').select('id')).data?.length).toBe(2);
   });
 
   it('operação recusada desfaz o efeito local e mostra o motivo', async () => {
-    // O Luan confirma o acerto enquanto o motoboy está sem internet.
+    // Outro aparelho confirma o acerto enquanto este está sem internet.
     const conta = await contaLocal();
     expect((await op(luan.c, 'informar_contado', { caixa_id: caixaId, dinheiro_contado: conta.devolver })).status).toBe(
       'aplicada',

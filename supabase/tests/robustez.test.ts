@@ -62,19 +62,19 @@ describe('horário do servidor', () => {
 
 describe('versao_op', () => {
   it('aceita a versão atual e a anterior', async () => {
-    aplicada(await joao.op('avisar_retorno', { caixa_id: caixaId, minutos: 5 }, { versaoOp: 0 }));
+    aplicada(await joao.opAntiga('avisar_retorno', { caixa_id: caixaId, minutos: 5 }, { versaoOp: 0 }));
   });
 
   it('versão antiga demais ou sem versão: não recusa nem grava; o app guarda a fila e pede para atualizar', async () => {
     const opId = novoId();
     await expect(
-      joao.op('avisar_retorno', { caixa_id: caixaId, minutos: 5 }, { id: opId, versaoOp: -1 }),
+      joao.opAntiga('avisar_retorno', { caixa_id: caixaId, minutos: 5 }, { id: opId, versaoOp: -1 }),
     ).rejects.toMatchObject({
       code: 'MEL02',
       message: 'Atualize o app para continuar.',
     });
     await expect(
-      joao.op('avisar_retorno', { caixa_id: caixaId, minutos: 5 }, { versaoOp: null }),
+      joao.opAntiga('avisar_retorno', { caixa_id: caixaId, minutos: 5 }, { versaoOp: null }),
     ).rejects.toMatchObject({
       code: 'MEL02',
     });
@@ -206,7 +206,7 @@ describe('MFA para admin e gerente', () => {
     const semMfa = await entrar('felipe', { semMfa: true });
     expect((await semMfa.db.from('caixas').select('id')).data).toEqual([]);
     expect((await semMfa.db.from('perfis').select('nome')).data).toEqual([{ nome: 'Felipe' }]);
-    await expect(semMfa.op('avisar_retorno', { caixa_id: caixaId, minutos: 5 })).rejects.toMatchObject({
+    await expect(semMfa.opAntiga('avisar_retorno', { caixa_id: caixaId, minutos: 5 })).rejects.toMatchObject({
       code: 'MEL03',
       message: 'Confirme o código do app autenticador.',
     });

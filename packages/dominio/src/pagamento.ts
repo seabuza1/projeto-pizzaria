@@ -70,12 +70,3 @@ export function validarLancamento({ codigo, total, pagamentos }: Lancamento): Re
   const r = validarPagamentos(total, pagamentos);
   return r.ok ? sucesso({ codigo, total, pagamentos: r.valor }) : r;
 }
-
-/** PAG5: Pix antecipado só vale depois de confirmado; até lá, o motoboy vê quanto falta cobrar. */
-export function pixPendente(pagamentos: readonly { forma: Forma; valor: Centavos; pixConfirmado: boolean }[]): {
-  temPix: boolean;
-  pendente: Centavos;
-} {
-  const pix = pagamentos.filter((p) => p.forma === 'pix_antecipado');
-  return { temPix: pix.length > 0, pendente: somar(...pix.filter((p) => !p.pixConfirmado).map((p) => p.valor)) };
-}

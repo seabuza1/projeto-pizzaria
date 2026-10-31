@@ -1,8 +1,7 @@
 // Folha da noite no formato do papel: uma coluna por motoboy (ordem de chegada) e a coluna PIX.
 import { formatarDataCurta } from '@mel/dominio';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router';
-import { MenuSaida } from '../../compartilhado/MenuSaida';
 import { curto, reais, SIGLA_FORMA } from '../../compartilhado/ui';
 import {
   acoes,
@@ -15,19 +14,7 @@ import {
   pixDaNoite,
   type Saida,
 } from '../../data/repo';
-
-/** "Volta em N min": o minuto que falta até o retorno avisado. */
-function useMinutosAte(iso: string | null): number | null {
-  const [agora, setAgora] = useState(() => Date.now());
-  useEffect(() => {
-    if (!iso) return;
-    const t = setInterval(() => setAgora(Date.now()), 15_000);
-    return () => clearInterval(t);
-  }, [iso]);
-  if (!iso) return null;
-  const min = Math.ceil((Date.parse(iso) - agora) / 60_000);
-  return min > 0 ? min : null;
-}
+import { MenuSaida } from './MenuSaida';
 
 function Coluna({
   caixa,
@@ -48,7 +35,6 @@ function Coluna({
   const confirmado = dados.acertos.some((a) => a.caixa_id === caixa.id);
   // "•" para papel não conferido, depois de aberto o acerto.
   const acertoAberto = caixa.dinheiro_contado !== null || saidas.some((s) => s.papel_conferido);
-  const volta = useMinutosAte(caixa.retorno_em);
 
   return (
     <section
@@ -61,7 +47,6 @@ function Coluna({
         </span>
         <span className="text-apagado">›</span>
       </Link>
-      {volta !== null && <span className="text-sm text-rota">Volta em {volta} min</span>}
       <ul className="flex flex-1 flex-col text-sm">
         {saidas.map((s) => {
           const vigentes = pagamentosVigentes(s, dados.pagamentos);

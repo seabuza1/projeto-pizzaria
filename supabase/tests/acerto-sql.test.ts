@@ -96,7 +96,7 @@ describe('conta do servidor = conta do domínio', () => {
   it('T7 o 8094 sai de novo e é entregue', async () => {
     const { voltou } = await lancarBase();
     const nova = novoId();
-    aplicada(await joao.op('sair_de_novo', { saida_id: nova, saida_anterior_id: voltou.saidaId }));
+    aplicada(await joao.op('sair_de_novo', { saida_id: nova, saida_anterior_id: voltou.saidaId, caixa_id: caixaId }));
     aplicada(await joao.op('mudar_estado_saida', { saida_id: nova, estado: 'entregue' }));
     expect(await conferir(null)).toMatchObject({ devolver: 30800, receber: 9800 });
   });
@@ -139,7 +139,7 @@ describe('conta do servidor = conta do domínio', () => {
   it('desfazer o lançamento cancela sem apagar; desfazer o "saiu de novo" devolve os pagamentos', async () => {
     const { voltou } = await lancarBase();
     const nova = novoId();
-    aplicada(await joao.op('sair_de_novo', { saida_id: nova, saida_anterior_id: voltou.saidaId }));
+    aplicada(await joao.op('sair_de_novo', { saida_id: nova, saida_anterior_id: voltou.saidaId, caixa_id: caixaId }));
     aplicada(
       await joao.op('cancelar_saida', { saida_id: nova, versao_esperada: await versaoDoPedido(voltou.pedidoId) }),
     );

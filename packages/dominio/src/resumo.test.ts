@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { liquidar } from './acerto';
 import { centavos as c } from './dinheiro';
-import { agruparPorCidade, filtrarPeriodo, historicoCsv, noiteCsv, resumirNoite, resumirPeriodo } from './resumo';
+import { agruparPorCidade, noiteCsv, resumirNoite } from './resumo';
 
 const area = (entregues: number, voltaram: number, taxas: number) => ({ entregues, voltaram, taxas: c(taxas) });
 
@@ -48,42 +48,6 @@ describe('resumo da noite', () => {
       porArea: { barra: area(2, 1, 3600), ara: area(4, 0, 2000) },
       pendentes: 1,
     });
-  });
-});
-
-describe('histórico do motoboy', () => {
-  const noites = [
-    { data: '2026-10-14', conta: contaB },
-    { data: '2026-10-16', conta: contaA },
-    { data: '2026-09-30', conta: contaB },
-  ];
-
-  it('filtra por semana (de segunda) e por mês', () => {
-    // 2026-10-16 é sexta; a semana começa na segunda 12/10.
-    expect(filtrarPeriodo(noites, 'semana', '2026-10-16').map((n) => n.data)).toEqual(['2026-10-14', '2026-10-16']);
-    expect(filtrarPeriodo(noites, 'mes', '2026-10-16').length).toBe(2);
-    expect(filtrarPeriodo(noites, 'mes', '2026-09-05').map((n) => n.data)).toEqual(['2026-09-30']);
-  });
-
-  it('resume noites, entregas, diárias, taxas e o total recebido', () => {
-    expect(
-      resumirPeriodo([...noites.slice(0, 2), { data: '2026-10-17', conta: { ...contaB, liquidacao: null } }]),
-    ).toEqual({
-      noites: 3,
-      entregas: 7,
-      porArea: { ara: area(4, 0, 2000), barra: area(2, 1, 3600) },
-      diarias: 9000,
-      taxas: 6600,
-      recebido: 3500 + 8300,
-      pendentes: 1,
-    });
-  });
-
-  it('exporta em CSV com ponto e vírgula', () => {
-    expect(historicoCsv([...noites.slice(0, 2), { data: '2026-10-17', conta: { ...contaB, liquidacao: null } }])).toBe(
-      'data;entregas;voltaram;diaria;taxas;recebido\n' +
-        '14/10/2026;1;0;30,00;5,00;35,00\n16/10/2026;5;1;30,00;56,00;83,00\n17/10/2026;1;0;30,00;5,00;\n',
-    );
   });
 });
 

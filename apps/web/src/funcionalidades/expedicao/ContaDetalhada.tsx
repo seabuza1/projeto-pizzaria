@@ -1,10 +1,10 @@
-// Conta do acerto com a origem de cada número (ACE10). Usada pelo motoboy, pelo Luan e no histórico.
+// Conta do acerto com a origem de cada número (ACE10), no caixa do motoboy do painel.
 import { agruparPorCidade, type ContaAcerto, explicarConta, textoDasPartes } from '@mel/dominio';
 import { useMemo } from 'react';
-import { useAreas } from '../data/repo';
-import { Linha, NOME_FORMA, reais, Secao } from './ui';
+import { Linha, NOME_FORMA, reais, Secao } from '../../compartilhado/ui';
+import { useAreas } from '../../data/repo';
 
-export function ContaDetalhada({ conta, paraMotoboy }: { conta: ContaAcerto; paraMotoboy: boolean }) {
+export function ContaDetalhada({ conta }: { conta: ContaAcerto }) {
   const areas = useAreas(true);
   const e = explicarConta(conta);
   const porCidade = useMemo(() => {
@@ -42,7 +42,7 @@ export function ContaDetalhada({ conta, paraMotoboy }: { conta: ContaAcerto; par
           </div>
         ))}
         {conta.pixAntecipado > 0 && (
-          <p className="text-sm text-apagado">Pix antecipado (não passa por você): {reais(conta.pixAntecipado)}</p>
+          <p className="text-sm text-apagado">Pix antecipado (não passa pelo motoboy): {reais(conta.pixAntecipado)}</p>
         )}
       </Secao>
 
@@ -70,17 +70,10 @@ export function ContaDetalhada({ conta, paraMotoboy }: { conta: ContaAcerto; par
           <Linha rotulo="Contado" valor={l.dinheiroContado} />
           {l.falta > 0 && <Linha rotulo="Falta" valor={l.falta} />}
           {l.sobra > 0 && <Linha rotulo="Sobra (fica retida)" valor={l.sobra} />}
-          <Linha rotulo={paraMotoboy ? 'Do seu caixa' : 'Do caixa dele'} valor={l.doCaixaDele} />
-          <Linha
-            rotulo={paraMotoboy ? 'O Luan tira do caixa da empresa' : 'Retirado do caixa da empresa'}
-            valor={l.retiradoCaixaEmpresa}
-          />
+          <Linha rotulo="Do caixa dele" valor={l.doCaixaDele} />
+          <Linha rotulo="Retirado do caixa da empresa" valor={l.retiradoCaixaEmpresa} />
           <Linha rotulo="Vai para a empresa" valor={l.vaiParaEmpresa} forte />
-          {l.completa > 0 && (
-            <p className="text-erro">
-              {paraMotoboy ? 'Você completa' : 'Ele completa'} {reais(l.completa)} do bolso.
-            </p>
-          )}
+          {l.completa > 0 && <p className="text-erro">Ele completa {reais(l.completa)} do bolso.</p>}
         </Secao>
       )}
     </div>

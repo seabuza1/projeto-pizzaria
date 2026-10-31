@@ -2,8 +2,8 @@
 // Também serve para "Trocou a forma" na porta.
 import { centavos, completarResto, type Forma, lerValor, validarPagamentos } from '@mel/dominio';
 import { useState } from 'react';
-import type { LinhaPagamento } from '../data/repo';
-import { Botao, Chip, NOME_FORMA, reais } from './ui';
+import { Botao, Chip, NOME_FORMA, reais } from '../../compartilhado/ui';
+import type { LinhaPagamento } from '../../data/repo';
 
 const FORMAS: Forma[] = ['dinheiro', 'cartao', 'pix_maquininha', 'pix_antecipado'];
 

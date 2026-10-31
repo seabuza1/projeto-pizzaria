@@ -3,8 +3,6 @@ import { formatarHora, lerValor, textoDaLiquidacao } from '@mel/dominio';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { mostrarAviso } from '../../compartilhado/avisos';
-import { ContaDetalhada } from '../../compartilhado/ContaDetalhada';
-import { MenuSaida } from '../../compartilhado/MenuSaida';
 import { Botao, DoisToques, reais, Secao, SIGLA_FORMA } from '../../compartilhado/ui';
 import {
   acoes,
@@ -15,6 +13,8 @@ import {
   useAreas,
   useConfig,
 } from '../../data/repo';
+import { ContaDetalhada } from './ContaDetalhada';
+import { MenuSaida } from './MenuSaida';
 
 const campo = 'numero min-h-12 w-32 rounded-xl border border-borda bg-cartao px-3 text-right text-lg';
 
@@ -156,6 +156,9 @@ export function AcertoLuan({ dados, perfis, perfil }: { dados: DadosNoite; perfi
             saida={s}
             pedido={p}
             vigentes={pagamentosVigentes(s, dados.pagamentos)}
+            caixas={dados.caixas
+              .filter((c) => !dados.acertos.some((a) => a.caixa_id === c.id))
+              .map((c) => ({ id: c.id, nome: nome(c.motoboy_id) }))}
             aoFechar={() => setAberta(null)}
           />
         ) : null;
@@ -172,7 +175,7 @@ export function AcertoLuan({ dados, perfis, perfil }: { dados: DadosNoite; perfi
 
       {l && !acerto && <p className="rounded-xl bg-amber-950 px-3 py-3 text-lg text-mel">{textoDaLiquidacao(l)}</p>}
 
-      <ContaDetalhada conta={conta} paraMotoboy={false} />
+      <ContaDetalhada conta={conta} />
 
       {!acerto && (
         <DoisToques

@@ -3,12 +3,12 @@ import { dataDaNoite, formatarData } from '@mel/dominio';
 import { useState } from 'react';
 import { Link, Navigate, Route, Routes } from 'react-router';
 import { mostrarAviso } from '../../compartilhado/avisos';
-import { LancarComanda } from '../../compartilhado/LancarComanda';
 import { IndicadorFila } from '../../compartilhado/status';
 import { Botao, Chip, DoisToques, Folha as FolhaQueSobe } from '../../compartilhado/ui';
 import { acoes, type Perfil, sair, useConfig, useDadosNoite, useNoite, usePerfis } from '../../data/repo';
 import { AcertoLuan } from './AcertoLuan';
 import { Folha } from './Folha';
+import { LancarComanda } from './LancarComanda';
 import { Resumo } from './Resumo';
 
 function Topo({ titulo }: { titulo: string }) {

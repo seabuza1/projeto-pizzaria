@@ -30,7 +30,6 @@ const dadosPorTipo = {
     diaria: centavos.optional(),
   }),
   editar_caixa: z.object({ caixa_id: id, caixa_inicial: centavos.optional(), diaria: centavos.optional() }),
-  avisar_retorno: z.object({ caixa_id: id, minutos: z.number().int().min(1).max(60).nullable() }),
   lancar_saida: z.object({
     caixa_id: id,
     pedido_id: id,
@@ -43,7 +42,7 @@ const dadosPorTipo = {
   cancelar_saida: z.object({ saida_id: id, versao_esperada: versao, motivo: motivo.optional() }),
   mudar_estado_saida: z.object({ saida_id: id, estado: z.enum(['em_rota', 'entregue', 'voltou']) }),
   trocar_pagamento: z.object({ saida_id: id, versao_esperada: versao, pagamentos: z.array(pagamentoLancado).max(6) }),
-  sair_de_novo: z.object({ saida_id: id, saida_anterior_id: id, caixa_id: id.optional(), area_id: id.optional() }),
+  sair_de_novo: z.object({ saida_id: id, saida_anterior_id: id, caixa_id: id, area_id: id.optional() }),
   conferir_papel: z.object({ saida_id: id, conferido: z.boolean() }),
   informar_contado: z.object({ caixa_id: id, dinheiro_contado: centavos.nullable() }),
   confirmar_acerto: z.object({

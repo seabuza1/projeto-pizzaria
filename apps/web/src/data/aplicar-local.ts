@@ -132,10 +132,7 @@ const aplicadores: { [T in TipoOperacao]: Aplicador<T> } = {
     });
     await tocarCaixa(db, d.caixa_id, ctx);
   },
-  async avisar_retorno(db, d, op) {
-    const retorno = d.minutos === null ? null : new Date(Date.parse(op.criada_em) + d.minutos * 60_000).toISOString();
-    await db.caixas.update(d.caixa_id, { retorno_em: retorno });
-  },
+
   async lancar_saida(db, d, op, ctx) {
     const caixa = await db.caixas.get(d.caixa_id);
     const area = await db.areas.get(d.area_id);
@@ -244,11 +241,7 @@ const aplicadores: { [T in TipoOperacao]: Aplicador<T> } = {
   async sair_de_novo(db, d, op, ctx) {
     const anterior = await db.saidas.get(d.saida_anterior_id);
     if (!anterior) return;
-    const caixa = d.caixa_id
-      ? await db.caixas.get(d.caixa_id)
-      : (await db.caixas.where('noite_id').equals(anterior.noite_id).toArray()).find(
-          (c) => c.motoboy_id === ctx.usuarioId,
-        );
+    const caixa = await db.caixas.get(d.caixa_id);
     const area = await db.areas.get(d.area_id ?? anterior.area_id);
     if (!caixa || !area) return;
     await db.saidas.put({

@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Centavos } from './dinheiro';
-import { pixPendente, validarLancamento } from './pagamento';
+import { validarLancamento } from './pagamento';
 
 const erro = (codigo: string, mensagem: string) => ({ ok: false, erro: { codigo, mensagem } });
 
@@ -85,22 +84,5 @@ describe('validação do lançamento', () => {
         pagamentos: [{ forma: 'dinheiro', valor: 1000, trocoPix: -1 }],
       }),
     ).toEqual(erro('troco_invalido', 'Troco por Pix inválido.'));
-  });
-});
-
-describe('Pix antecipado pendente (PAG5)', () => {
-  it('soma o que ainda não caiu', () => {
-    const c = (v: number) => v as Centavos;
-    expect(
-      pixPendente([
-        { forma: 'pix_antecipado', valor: c(2000), pixConfirmado: false },
-        { forma: 'pix_antecipado', valor: c(1000), pixConfirmado: true },
-        { forma: 'dinheiro', valor: c(3000), pixConfirmado: false },
-      ]),
-    ).toEqual({ temPix: true, pendente: 2000 });
-    expect(pixPendente([{ forma: 'cartao', valor: c(1000), pixConfirmado: false }])).toEqual({
-      temPix: false,
-      pendente: 0,
-    });
   });
 });

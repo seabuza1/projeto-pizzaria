@@ -1,9 +1,9 @@
 // Menu do código (F1, Fluxo da noite, passo 4): voltou, saiu de novo, trocou a forma e cancelar a saída.
 import { useState } from 'react';
-import { acoes, type Pagamento, type Pedido, type Saida, useAreas } from '../data/repo';
-import { mostrarAviso } from './avisos';
+import { mostrarAviso } from '../../compartilhado/avisos';
+import { Botao, Chip, curto, DoisToques, Folha, reais } from '../../compartilhado/ui';
+import { acoes, type Pagamento, type Pedido, type Saida, useAreas } from '../../data/repo';
 import { EditorPagamentos } from './EditorPagamentos';
-import { Botao, Chip, curto, DoisToques, Folha, reais } from './ui';
 
 export function MenuSaida({
   saida,
@@ -15,8 +15,8 @@ export function MenuSaida({
   saida: Saida;
   pedido: Pedido;
   vigentes: Pagamento[];
-  /** Para "Saiu de novo" com outro motoboy. Sem a lista, sai no mesmo caixa. */
-  caixas?: readonly { id: string; nome: string }[];
+  /** Caixas abertos para "Saiu de novo" (o mesmo motoboy ou outro). */
+  caixas: readonly { id: string; nome: string }[];
   aoFechar: () => void;
 }) {
   const [tela, setTela] = useState<'menu' | 'forma' | 'saiu'>('menu');
@@ -46,7 +46,7 @@ export function MenuSaida({
   }
 
   async function saiuDeNovo() {
-    const nova = await acoes.sairDeNovo(saida.id, { areaId, ...(caixas ? { caixaId } : {}) });
+    const nova = await acoes.sairDeNovo(saida.id, { areaId, caixaId });
     aoFechar();
     mostrarAviso(`${codigo} saiu de novo`, { desfazer: () => void acoes.cancelarSaida(nova, 'Desfeito: não saiu') });
   }
@@ -117,7 +117,7 @@ export function MenuSaida({
       )}
       {tela === 'saiu' && (
         <div className="flex flex-col gap-3">
-          {caixas && (
+          {caixas.length > 1 && (
             <>
               <p className="text-apagado">Com qual motoboy?</p>
               <div className="flex flex-wrap gap-2">

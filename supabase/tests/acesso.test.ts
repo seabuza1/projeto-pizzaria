@@ -193,9 +193,9 @@ describe('fila idempotente', () => {
 
   it('outra pessoa não reaproveita o id de uma operação', async () => {
     const opId = novoId();
-    aplicada(await joao.op('avisar_retorno', { caixa_id: caixas.joao ?? '', minutos: 5 }, { id: opId }));
+    aplicada(await joao.opAntiga('avisar_retorno', { caixa_id: caixas.joao ?? '', minutos: 5 }, { id: opId }));
     await expect(
-      pedro.op('avisar_retorno', { caixa_id: caixas.pedro ?? '', minutos: 5 }, { id: opId }),
+      pedro.opAntiga('avisar_retorno', { caixa_id: caixas.pedro ?? '', minutos: 5 }, { id: opId }),
     ).rejects.toThrow();
   });
 });

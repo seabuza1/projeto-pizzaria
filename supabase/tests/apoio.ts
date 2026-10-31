@@ -81,6 +81,12 @@ export interface Sessao {
     dados: DadosDe<T>,
     opcoes?: { id?: string; criadaEm?: string; versaoOp?: number | null },
   ): Promise<RespostaOperacao>;
+  /** Operação que um app antigo ainda pode mandar: o servidor aceita até contrair (PADROES, migrações). */
+  opAntiga(
+    tipo: string,
+    dados: Record<string, unknown>,
+    opcoes?: { id?: string; criadaEm?: string; versaoOp?: number | null },
+  ): Promise<RespostaOperacao>;
 }
 
 /** Entra com e-mail e senha; admin e gerente confirmam o código TOTP, a menos que `semMfa`. */
@@ -95,23 +101,25 @@ export async function entrar(conta: Conta, opcoes: { semMfa?: boolean } = {}): P
     const r = await db.auth.mfa.challengeAndVerify({ factorId: fator.id, code: codigoTotp() });
     if (r.error) throw r.error;
   }
+  const opAntiga: Sessao['opAntiga'] = async (tipo, dados, opcoes) => {
+    const operacao = {
+      id: opcoes?.id ?? novoId(),
+      tipo,
+      dados,
+      criada_em: opcoes?.criadaEm ?? new Date().toISOString(),
+      aparelho: 'teste',
+      versao_op: opcoes?.versaoOp === undefined ? VERSAO_OP : opcoes.versaoOp,
+    };
+    const { data, error: erro } = await db.rpc('aplicar_operacao', { op: operacao as never });
+    if (erro) throw erro;
+    return data as unknown as RespostaOperacao;
+  };
   return {
     conta,
     id: CONTAS[conta].id,
     db,
-    async op(tipo, dados, opcoes) {
-      const operacao = {
-        id: opcoes?.id ?? novoId(),
-        tipo,
-        dados,
-        criada_em: opcoes?.criadaEm ?? new Date().toISOString(),
-        aparelho: 'teste',
-        versao_op: opcoes?.versaoOp === undefined ? VERSAO_OP : opcoes.versaoOp,
-      };
-      const { data, error: erro } = await db.rpc('aplicar_operacao', { op: operacao as never });
-      if (erro) throw erro;
-      return data as unknown as RespostaOperacao;
-    },
+    op: (tipo, dados, opcoes) => opAntiga(tipo, dados as Record<string, unknown>, opcoes),
+    opAntiga,
   };
 }
 
