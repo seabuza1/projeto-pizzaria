@@ -1,9 +1,11 @@
 // /expedicao: painel do Luan (papéis expedicao, gerente e admin).
 import { dataDaNoite, formatarData } from '@mel/dominio';
+import { useState } from 'react';
 import { Link, Navigate, Route, Routes } from 'react-router';
 import { mostrarAviso } from '../../compartilhado/avisos';
+import { LancarComanda } from '../../compartilhado/LancarComanda';
 import { IndicadorFila } from '../../compartilhado/status';
-import { Botao, Chip, DoisToques } from '../../compartilhado/ui';
+import { Botao, Chip, DoisToques, Folha as FolhaQueSobe } from '../../compartilhado/ui';
 import { acoes, type Perfil, sair, useConfig, useDadosNoite, useNoite, usePerfis } from '../../data/repo';
 import { AcertoLuan } from './AcertoLuan';
 import { Folha } from './Folha';
@@ -23,6 +25,7 @@ export function Expedicao({ perfil }: { perfil: Perfil }) {
   const dados = useDadosNoite(noite?.id);
   const perfis = usePerfis();
   const cfg = useConfig();
+  const [lancando, setLancando] = useState(false);
 
   if (noite === undefined || dados === undefined) return <Topo titulo="Painel" />;
 
@@ -54,7 +57,9 @@ export function Expedicao({ perfil }: { perfil: Perfil }) {
 
   const comCaixa = new Set(dados.caixas.map((c) => c.motoboy_id));
   const semCaixa = perfis.filter((p) => p.ativo && p.papeis.includes('motoboy') && !comCaixa.has(p.id));
-  const pendentes = dados.caixas.filter((c) => !dados.acertos.some((a) => a.caixa_id === c.id)).length;
+  const semAcerto = dados.caixas.filter((c) => !dados.acertos.some((a) => a.caixa_id === c.id));
+  const pendentes = semAcerto.length;
+  const nome = (id: string) => perfis.find((p) => p.id === id)?.nome ?? '?';
 
   return (
     <>
@@ -86,6 +91,19 @@ export function Expedicao({ perfil }: { perfil: Perfil }) {
               ) : (
                 <Folha noite={aberta} dados={dados} perfis={perfis} />
               )}
+              {semAcerto.length > 0 && (
+                <Botao className="mx-3" onClick={() => setLancando(true)}>
+                  Lançar comanda de papel
+                </Botao>
+              )}
+              <FolhaQueSobe aberta={lancando} aoFechar={() => setLancando(false)} titulo="Lançar comanda de papel">
+                {lancando && (
+                  <LancarComanda
+                    caixas={semAcerto.map((c) => ({ id: c.id, nome: nome(c.motoboy_id) }))}
+                    pedidosDaNoite={dados.pedidos}
+                  />
+                )}
+              </FolhaQueSobe>
               <div className="grid grid-cols-2 gap-2 p-3">
                 <Link
                   to="resumo"

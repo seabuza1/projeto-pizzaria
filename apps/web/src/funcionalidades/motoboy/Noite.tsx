@@ -2,10 +2,10 @@
 import { centavos, pixPendente } from '@mel/dominio';
 import { useMemo, useState } from 'react';
 import { mostrarAviso } from '../../compartilhado/avisos';
+import { LancarComanda } from '../../compartilhado/LancarComanda';
+import { MenuSaida } from '../../compartilhado/MenuSaida';
 import { Botao, reais, SIGLA_FORMA } from '../../compartilhado/ui';
 import { acoes, type Pagamento, pagamentosVigentes, type Saida, useAreas } from '../../data/repo';
-import { Lancar } from './Lancar';
-import { MenuSaida } from './MenuSaida';
 import type { CaixaDoMotoboy } from './usar-caixa';
 
 const ESTADO = {
@@ -59,7 +59,7 @@ export function Noite({ c }: { c: CaixaDoMotoboy }) {
 
   return (
     <div className="flex flex-col gap-3 p-3">
-      {!c.travado && <Lancar caixaId={c.caixa.id} pedidosDaNoite={pedidosDaNoite} />}
+      {!c.travado && <LancarComanda caixas={[{ id: c.caixa.id, nome: '' }]} pedidosDaNoite={pedidosDaNoite} />}
 
       {!c.travado && (
         <div className="grid grid-cols-3 gap-2 whitespace-nowrap text-sm">

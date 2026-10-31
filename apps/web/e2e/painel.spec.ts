@@ -1,7 +1,7 @@
 // F1, "Pronto quando": o painel mostra a comanda nova em poucos segundos; depois do acerto confirmado,
 // o motoboy não edita o caixa nem as saídas.
 import { expect, test } from '@playwright/test';
-import { bancoLimpo, entrarComo, lancar } from './apoio';
+import { bancoLimpo, entrarComo, lancar, noiteComCaixaDoJoao } from './apoio';
 
 test('noite completa: Luan abre, João lança, Pix cai, Luan confere e confirma o acerto', async ({ browser }) => {
   await bancoLimpo();
@@ -22,7 +22,7 @@ test('noite completa: Luan abre, João lança, Pix cai, Luan confere e confirma 
   await celularJoao.getByRole('button', { name: 'Entregue', exact: true }).first().click();
 
   // Em poucos segundos, as comandas aparecem na folha do Luan.
-  const folha = celularLuan.locator('a[href*="/caixa/"]');
+  const folha = celularLuan.getByRole('region', { name: 'Coluna de João' });
   await expect(folha).toContainText('3557', { timeout: 10_000 });
   await expect(folha).toContainText('0017', { timeout: 10_000 });
   await expect(folha).toContainText('Devolve R$ 193,00');
@@ -33,7 +33,7 @@ test('noite completa: Luan abre, João lança, Pix cai, Luan confere e confirma 
   await expect(celularJoao.getByText('Pix confirmado')).toBeVisible({ timeout: 10_000 });
 
   // Caixa do João: papéis, dinheiro contado e liquidação.
-  await folha.first().click();
+  await folha.getByRole('link').first().click();
   await expect(celularLuan.getByText('Papéis (2 faltando)')).toBeVisible();
   // As que faltam ficam no topo: marca a primeira sem conferir, duas vezes.
   await celularLuan.getByRole('checkbox', { checked: false }).first().click();
@@ -62,4 +62,32 @@ test('noite completa: Luan abre, João lança, Pix cai, Luan confere e confirma 
   await celularLuan.getByRole('link', { name: '← Folha' }).click();
   await celularLuan.getByRole('link', { name: 'Resumo da noite' }).click();
   await expect(celularLuan.locator('section', { hasText: 'Motoboys' })).toContainText('R$ 47,00');
+});
+
+test('o Luan lança comanda de papel, troca a forma e marca o que voltou, pelo painel', async ({ page }) => {
+  await noiteComCaixaDoJoao();
+  await entrarComo(page, 'luan@mel.test');
+  const coluna = page.getByRole('region', { name: 'Coluna de João' });
+  await expect(coluna).toContainText('Devolve R$ 80,00');
+
+  // Contingência: a noite rodou no papel e o Luan lança depois.
+  await page.getByRole('button', { name: 'Lançar comanda de papel' }).click();
+  await lancar(page, '2672', '90', /^Pontal/, 'Dinheiro');
+  await lancar(page, '8094', '65', /^Barra/, 'Dinheiro');
+  await page.keyboard.press('Escape');
+  await expect(coluna).toContainText('Devolve R$ 235,00');
+
+  // Na porta o cliente pagou no cartão: "Trocou a forma" (PAG3).
+  await coluna.getByRole('button', { name: /^2672/ }).click();
+  await page.getByRole('button', { name: 'Trocou a forma' }).click();
+  // O editor vem com a forma atual (dinheiro, 90); troca a forma da linha para cartão.
+  await page.getByRole('dialog').getByRole('button', { name: 'Cartão' }).first().click();
+  await page.getByRole('button', { name: 'Salvar a forma' }).click();
+  await expect(coluna).toContainText('Devolve R$ 145,00');
+
+  // O 8094 voltou: a taxa conta, os valores não (ENT5).
+  await coluna.getByRole('button', { name: /^8094/ }).click();
+  await page.getByRole('button', { name: 'Voltou', exact: true }).click();
+  await expect(coluna).toContainText('Devolve R$ 80,00');
+  await expect(coluna).toContainText('Recebe R$ 52,00');
 });

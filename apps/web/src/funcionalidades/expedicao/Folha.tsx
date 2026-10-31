@@ -2,6 +2,7 @@
 import { formatarDataCurta } from '@mel/dominio';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
+import { MenuSaida } from '../../compartilhado/MenuSaida';
 import { curto, reais, SIGLA_FORMA } from '../../compartilhado/ui';
 import {
   acoes,
@@ -12,6 +13,7 @@ import {
   type Perfil,
   pagamentosVigentes,
   pixDaNoite,
+  type Saida,
 } from '../../data/repo';
 
 /** "Volta em N min": o minuto que falta até o retorno avisado. */
@@ -27,7 +29,19 @@ function useMinutosAte(iso: string | null): number | null {
   return min > 0 ? min : null;
 }
 
-function Coluna({ caixa, dados, nome, noite }: { caixa: Caixa; dados: DadosNoite; nome: string; noite: Noite }) {
+function Coluna({
+  caixa,
+  dados,
+  nome,
+  noite,
+  aoTocarCodigo,
+}: {
+  caixa: Caixa;
+  dados: DadosNoite;
+  nome: string;
+  noite: Noite;
+  aoTocarCodigo: (saida: Saida) => void;
+}) {
   const conta = contaDoCaixa(caixa, dados);
   const saidas = dados.saidas.filter((s) => s.caixa_id === caixa.id && !s.cancelada_em);
   const pedidos = new Map(dados.pedidos.map((p) => [p.id, p]));
@@ -37,15 +51,16 @@ function Coluna({ caixa, dados, nome, noite }: { caixa: Caixa; dados: DadosNoite
   const volta = useMinutosAte(caixa.retorno_em);
 
   return (
-    <Link
-      to={`caixa/${caixa.id}`}
+    <section
+      aria-label={`Coluna de ${nome}`}
       className="flex w-44 shrink-0 flex-col gap-1 rounded-xl border border-borda bg-cartao/40 p-2 sm:w-auto sm:flex-1"
     >
-      <div className="flex items-baseline justify-between border-b border-borda pb-1">
+      <Link to={`caixa/${caixa.id}`} className="flex min-h-12 items-center justify-between border-b border-borda pb-1">
         <span className="font-semibold">
           <span className="numero text-apagado">{caixa.ordem_chegada}</span> {nome}
         </span>
-      </div>
+        <span className="text-apagado">›</span>
+      </Link>
       {volta !== null && <span className="text-sm text-rota">Volta em {volta} min</span>}
       <ul className="flex flex-1 flex-col text-sm">
         {saidas.map((s) => {
@@ -54,20 +69,28 @@ function Coluna({ caixa, dados, nome, noite }: { caixa: Caixa; dados: DadosNoite
           const troco = vigentes.find((p) => p.troco_pix > 0)?.troco_pix ?? 0;
           const voltou = s.estado === 'voltou';
           return (
-            <li key={s.id} className="flex gap-2">
-              <span className={`numero ${voltou ? 'text-apagado line-through' : ''}`}>
-                {pedidos.get(s.pedido_id)?.codigo}
-              </span>
-              <span className={voltou ? 'text-erro' : s.estado === 'em_rota' ? 'text-rota' : 'text-apagado'}>
-                {voltou ? 'voltou' : vigentes.map((p) => SIGLA_FORMA[p.forma]).join('+')}
-                {troco > 0 && <span className="numero text-texto"> →{curto(troco)}</span>}
-              </span>
-              {acertoAberto && !s.papel_conferido && <span className="text-aviso">•</span>}
+            <li key={s.id}>
+              {/* Menu do código: Voltou, Saiu de novo, Trocou a forma e Cancelar saída. */}
+              <button
+                type="button"
+                className="flex min-h-10 w-full items-center gap-2 text-left disabled:opacity-100"
+                disabled={confirmado}
+                onClick={() => aoTocarCodigo(s)}
+              >
+                <span className={`numero ${voltou ? 'text-apagado line-through' : ''}`}>
+                  {pedidos.get(s.pedido_id)?.codigo}
+                </span>
+                <span className={voltou ? 'text-erro' : s.estado === 'em_rota' ? 'text-rota' : 'text-apagado'}>
+                  {voltou ? 'voltou' : vigentes.map((p) => SIGLA_FORMA[p.forma]).join('+')}
+                  {troco > 0 && <span className="numero text-texto"> →{curto(troco)}</span>}
+                </span>
+                {acertoAberto && !s.papel_conferido && <span className="text-aviso">•</span>}
+              </button>
             </li>
           );
         })}
       </ul>
-      <div className="numero flex flex-col border-t border-borda pt-1 text-sm">
+      <Link to={`caixa/${caixa.id}`} className="numero flex flex-col border-t border-borda pt-1 text-sm">
         <span className="text-apagado">
           {formatarDataCurta(noite.data)} · {curto(caixa.caixa_inicial)}
         </span>
@@ -75,8 +98,8 @@ function Coluna({ caixa, dados, nome, noite }: { caixa: Caixa; dados: DadosNoite
         <span>Devolve {reais(conta.devolver)}</span>
         <span>Recebe {reais(conta.receber)}</span>
         <span className={confirmado ? 'text-ok' : 'text-aviso'}>{confirmado ? 'Confirmado' : 'Pendente'}</span>
-      </div>
-    </Link>
+      </Link>
+    </section>
   );
 }
 
@@ -106,13 +129,28 @@ function ColunaPix({ dados }: { dados: DadosNoite }) {
 }
 
 export function Folha({ noite, dados, perfis }: { noite: Noite; dados: DadosNoite; perfis: Perfil[] }) {
+  const [aberta, setAberta] = useState<Saida | null>(null);
   const nome = (id: string) => perfis.find((p) => p.id === id)?.nome ?? '?';
+  const pedido = aberta && dados.pedidos.find((p) => p.id === aberta.pedido_id);
+  const atual = aberta && dados.saidas.find((s) => s.id === aberta.id && !s.cancelada_em);
+  const abertos = dados.caixas
+    .filter((c) => !dados.acertos.some((a) => a.caixa_id === c.id))
+    .map((c) => ({ id: c.id, nome: nome(c.motoboy_id) }));
   return (
     <div className="flex gap-2 overflow-x-auto p-3 sm:flex-wrap sm:overflow-visible">
       {dados.caixas.map((c) => (
-        <Coluna key={c.id} caixa={c} dados={dados} nome={nome(c.motoboy_id)} noite={noite} />
+        <Coluna key={c.id} caixa={c} dados={dados} nome={nome(c.motoboy_id)} noite={noite} aoTocarCodigo={setAberta} />
       ))}
       <ColunaPix dados={dados} />
+      {pedido && atual && (
+        <MenuSaida
+          saida={atual}
+          pedido={pedido}
+          vigentes={pagamentosVigentes(atual, dados.pagamentos)}
+          caixas={abertos}
+          aoFechar={() => setAberta(null)}
+        />
+      )}
     </div>
   );
 }

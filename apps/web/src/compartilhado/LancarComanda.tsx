@@ -1,16 +1,32 @@
-// Lançar a saída com a comanda na mão (F1, Fluxo da noite, passo 3).
+// Lançar comanda de papel (F1, Fluxo da noite, passo 5): código, total, área, forma e motoboy.
+// Tocar na forma já lança. Com um caixa só, o motoboy já vem escolhido.
 import { centavos, type Forma, lerValor, validarLancamento } from '@mel/dominio';
 import { useEffect, useRef, useState } from 'react';
-import { mostrarAviso } from '../../compartilhado/avisos';
-import { marcarEdicao } from '../../compartilhado/edicao';
-import { Botao, Chip, curto, Folha, NOME_FORMA } from '../../compartilhado/ui';
-import { acoes, areaSugerida, type LinhaPagamento, type Pedido, useAreas } from '../../data/repo';
+import { acoes, areaSugerida, type LinhaPagamento, type Pedido, useAreas } from '../data/repo';
+import { mostrarAviso } from './avisos';
 import { EditorPagamentos } from './EditorPagamentos';
+import { marcarEdicao } from './edicao';
+import { Botao, Chip, curto, Folha, NOME_FORMA } from './ui';
 
 const FORMAS: Forma[] = ['dinheiro', 'cartao', 'pix_maquininha', 'pix_antecipado'];
 
-export function Lancar({ caixaId, pedidosDaNoite }: { caixaId: string; pedidosDaNoite: Pedido[] }) {
+export interface CaixaParaLancar {
+  id: string;
+  nome: string;
+}
+
+export function LancarComanda({
+  caixas,
+  pedidosDaNoite,
+  aoLancar,
+}: {
+  caixas: readonly CaixaParaLancar[];
+  pedidosDaNoite: Pedido[];
+  aoLancar?: () => void;
+}) {
   const areas = useAreas();
+  const [escolhido, setEscolhido] = useState<string | null>(null);
+  const caixaId = caixas.length === 1 ? caixas[0]?.id : escolhido;
   const [codigo, setCodigo] = useState('');
   const [totalTexto, setTotalTexto] = useState('');
   const [areaId, setAreaId] = useState<string | null>(null);
@@ -52,6 +68,7 @@ export function Lancar({ caixaId, pedidosDaNoite }: { caixaId: string; pedidosDa
     const total = lerValor(totalTexto);
     if (!total.ok) return setErro('Digite o total, por exemplo 113.');
     if (!areaId) return setErro('Escolha a área.');
+    if (!caixaId) return setErro('Escolha o motoboy.');
     const valido = validarLancamento({ codigo, total: total.valor, pagamentos });
     if (!valido.ok) return setErro(valido.erro.mensagem);
     // PED1: o código pode repetir na noite; o app avisa e pede um segundo toque.
@@ -63,6 +80,7 @@ export function Lancar({ caixaId, pedidosDaNoite }: { caixaId: string; pedidosDa
     const saidaId = await acoes.lancar({ caixaId, codigo, total: total.valor, areaId, pagamentos });
     const lancado = codigo;
     limpar();
+    aoLancar?.();
     mostrarAviso(`${lancado} lançada`, { desfazer: () => void acoes.cancelarSaida(saidaId, 'Desfeito ao lançar') });
   }
 
@@ -97,6 +115,16 @@ export function Lancar({ caixaId, pedidosDaNoite }: { caixaId: string; pedidosDa
           onChange={(e) => setTotalTexto(e.target.value)}
         />
       </div>
+
+      {caixas.length > 1 && (
+        <div className="flex flex-wrap gap-2">
+          {caixas.map((c) => (
+            <Chip key={c.id} ativo={c.id === caixaId} onClick={() => setEscolhido(c.id)}>
+              {c.nome}
+            </Chip>
+          ))}
+        </div>
+      )}
 
       <div className="flex flex-wrap gap-2">
         {areas.map((a) => (

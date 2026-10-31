@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { mostrarAviso } from '../../compartilhado/avisos';
 import { ContaDetalhada } from '../../compartilhado/ContaDetalhada';
+import { MenuSaida } from '../../compartilhado/MenuSaida';
 import { Botao, DoisToques, reais, Secao, SIGLA_FORMA } from '../../compartilhado/ui';
 import {
   acoes,
@@ -61,6 +62,7 @@ export function AcertoLuan({ dados, perfis, perfil }: { dados: DadosNoite; perfi
   const areas = useAreas(true);
   const cfg = useConfig();
   const [motivo, setMotivo] = useState('');
+  const [aberta, setAberta] = useState<string | null>(null);
   const caixa = dados.caixas.find((c) => c.id === caixaId);
   if (!caixa) return <p className="p-6 text-apagado">Caixa não encontrado.</p>;
 
@@ -136,10 +138,28 @@ export function AcertoLuan({ dados, perfis, perfil }: { dados: DadosNoite; perfi
                 {s.saiu_em && <span>saiu {formatarHora(s.saiu_em, cfg?.fuso)}</span>}
               </span>
               <span className="numero">{p ? reais(p.total) : ''}</span>
+              {!acerto && (
+                <Botao variante="fantasma" onClick={() => setAberta(s.id)} aria-label={`Menu da ${p?.codigo ?? ''}`}>
+                  ⋯
+                </Botao>
+              )}
             </label>
           );
         })}
       </Secao>
+
+      {(() => {
+        const s = saidas.find((x) => x.id === aberta);
+        const p = s && pedidos.get(s.pedido_id);
+        return s && p ? (
+          <MenuSaida
+            saida={s}
+            pedido={p}
+            vigentes={pagamentosVigentes(s, dados.pagamentos)}
+            aoFechar={() => setAberta(null)}
+          />
+        ) : null;
+      })()}
 
       <Secao titulo="Dinheiro contado">
         <CampoValor
