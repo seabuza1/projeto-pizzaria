@@ -2,7 +2,7 @@
 
 - **Contexto:** PADROES pede motivo registrado para cada biblioteca nova.
 - **Decisão:**
-  - `react-router`: rotas por papel (`/motoboy`, `/expedicao`, `/admin`);
+  - `react-router`: rotas montadas pela lista de módulos (`/expedicao` e as próximas);
   - `dexie-react-hooks`: `useLiveQuery`, que a ARQUITETURA já prevê com o Dexie;
   - `uuid`: UUID v7 gerado no aparelho (o navegador só gera v4);
   - `postgres` (só testes): limpar e conferir o banco local direto;
