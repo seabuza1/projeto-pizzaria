@@ -1,6 +1,7 @@
 // Entrada do app: sessão, faixas fixas e as rotas e o menu montados a partir da lista de módulos.
 import type { ReactNode } from 'react';
 import { Navigate, NavLink, Route, Routes } from 'react-router';
+import { AvisoImpressora } from './compartilhado/AvisoImpressora';
 import type { FichaModulo } from './compartilhado/modulo';
 import { AvisoBloqueio, FaixaTeste, RodapeAvisos } from './compartilhado/status';
 import { type Perfil, useAppDesatualizado, useConfig, useSessao } from './data/repo';
@@ -56,8 +57,11 @@ function Moldura({ children }: { children: ReactNode }) {
 function Dentro({ perfil }: { perfil: Perfil }) {
   const meus = useMeusModulos(perfil);
   const inicio = meus[0]?.menu.caminho ?? '/sem-acesso';
+  // Quem é do balcão imprime: vê quando a impressora para de responder.
+  const balcao = perfil.papeis.some((p) => p === 'admin' || p === 'gerente' || p === 'expedicao' || p === 'atendente');
   return (
     <>
+      {balcao && <AvisoImpressora />}
       <Menu meus={meus} />
       <Routes>
         {meus.flatMap((m) =>

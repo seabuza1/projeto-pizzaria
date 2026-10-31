@@ -30,9 +30,13 @@ import {
   prontosParaSair,
   reciboDoAcerto,
   resumirNoite,
+  type SituacaoImpressora,
+  situacaoDaImpressora,
 } from '@mel/dominio';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useEffect, useState, useSyncExternalStore } from 'react';
+// Como script comum (sem `require`), o ReceiptLine não carrega os módulos do Node: serve para o SVG.
+import receiptlineUrl from 'receiptline/lib/receiptline.js?url';
 import { v7 as uuidv7 } from 'uuid';
 import { mostrarAviso } from '../compartilhado/avisos';
 import {
@@ -613,6 +617,34 @@ export const acoes = {
     const conteudo = reciboDoAcerto(await dadosDoRecibo(caixa));
     return acoes.pedirImpressao({ tipo: 'recibo_acerto', conteudo, noiteId: caixa.noite_id, caixaId });
   },
+  /**
+   * Reserva sem o agente (ARQUITETURA, Robustez): imprime pelo navegador e marca "impresso",
+   * para o agente não imprimir de novo quando voltar.
+   */
+  async imprimirNoNavegador(impressaoId: string) {
+    const trabalho = await banco.impressoes.get(impressaoId);
+    if (!trabalho) return;
+    const svg = (await receiptlineDoNavegador()).transform(trabalho.conteudo, {
+      cpl: 48,
+      encoding: 'cp860',
+      command: 'svg',
+    });
+    const quadro = document.createElement('iframe');
+    quadro.style.position = 'fixed';
+    quadro.style.width = '0';
+    quadro.style.height = '0';
+    quadro.style.border = '0';
+    document.body.appendChild(quadro);
+    const doc = quadro.contentDocument;
+    if (!doc || !quadro.contentWindow) return quadro.remove();
+    doc.open();
+    doc.write(`<!doctype html><html><body style="margin:0">${svg}</body></html>`);
+    doc.close();
+    quadro.contentWindow.focus();
+    quadro.contentWindow.print();
+    setTimeout(() => quadro.remove(), 60_000);
+    await executar('atualizar_impressao', { impressao_id: impressaoId, estado: 'impresso' });
+  },
   /** Folha da noite, só por botão, como reserva (MVP.md). */
   async imprimirFolha(noiteId: string) {
     const conteudo = folhaDaNoite(await dadosDaFolha(noiteId));
@@ -928,4 +960,63 @@ async function dadosDaFolha(noiteId: string): Promise<DadosFolha> {
     })),
     resumo: resumirNoite(contas.map((c) => c.conta)),
   };
+}
+
+/** "Impressora sem resposta" (batimento do agente a cada 30 s). Sem internet, não dá para saber: null. */
+export function useSituacaoImpressora(): SituacaoImpressora | null {
+  const [situacao, setSituacao] = useState<SituacaoImpressora | null>(null);
+  useEffect(() => {
+    let vale = true;
+    const ler = async () => {
+      const { data, error } = await supabase.from('agentes').select('impressora_ok, visto_em');
+      if (!vale) return;
+      if (error) return setSituacao(null);
+      // Vários agentes: vale o que bateu por último.
+      const ultimo = (data ?? []).sort((a, b) => b.visto_em.localeCompare(a.visto_em))[0];
+      setSituacao(
+        situacaoDaImpressora(
+          ultimo ? { vistoEm: ultimo.visto_em, impressoraOk: ultimo.impressora_ok } : null,
+          new Date(),
+        ),
+      );
+    };
+    void ler();
+    const t = setInterval(() => void ler(), 30_000);
+    return () => {
+      vale = false;
+      clearInterval(t);
+    };
+  }, []);
+  return situacao;
+}
+
+/** Impressões da noite que não saíram (pendentes ou com erro), as mais antigas primeiro. */
+export const useImpressoesParadas = (noiteId: string | undefined) =>
+  useLiveQuery(
+    async () =>
+      noiteId
+        ? (await banco.impressoes.where('noite_id').equals(noiteId).toArray())
+            .filter((i) => i.estado === 'pendente' || i.estado === 'erro')
+            .sort((a, b) => a.criado_em.localeCompare(b.criado_em))
+        : [],
+    [noiteId],
+    [],
+  );
+
+type ReceiptLine = { transform: (doc: string, opcoes: Record<string, unknown>) => string };
+
+/** O ReceiptLine só para a reserva pelo navegador; carrega na primeira vez que precisa. */
+async function receiptlineDoNavegador(): Promise<ReceiptLine> {
+  const janela = window as unknown as { receiptline?: ReceiptLine };
+  if (!janela.receiptline) {
+    await new Promise<void>((pronto, falhou) => {
+      const script = document.createElement('script');
+      script.src = receiptlineUrl;
+      script.onload = () => pronto();
+      script.onerror = () => falhou(new Error('Não deu para carregar o ReceiptLine.'));
+      document.head.appendChild(script);
+    });
+  }
+  if (!janela.receiptline) throw new Error('ReceiptLine sem carregar.');
+  return janela.receiptline;
 }

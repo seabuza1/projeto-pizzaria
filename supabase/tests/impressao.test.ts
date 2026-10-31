@@ -81,6 +81,26 @@ describe('o atendimento só cuida da comanda', () => {
   });
 });
 
+describe('reserva pelo navegador', () => {
+  it('sem o agente, a equipe marca "impresso" e o agente não imprime de novo; nada além disso', async () => {
+    const d = comanda();
+    aplicada(await atendimento.op('pedir_impressao', d));
+    const erro = await atendimento.op('atualizar_impressao', { impressao_id: d.impressao_id, estado: 'erro' });
+    expect(erro.codigo).toBe('sem_permissao');
+    aplicada(await atendimento.op('atualizar_impressao', { impressao_id: d.impressao_id, estado: 'impresso' }));
+    expect(await estado(d.impressao_id)).toEqual({ estado: 'impresso', tentativas: 0, impressa: true });
+
+    const folha = { ...comanda(), tipo: 'folha_noite' as const };
+    aplicada(await luan.op('pedir_impressao', folha));
+    const doAtendimento = await atendimento.op('atualizar_impressao', {
+      impressao_id: folha.impressao_id,
+      estado: 'impresso',
+    });
+    expect(doAtendimento.codigo).toBe('sem_permissao');
+    aplicada(await luan.op('atualizar_impressao', { impressao_id: folha.impressao_id, estado: 'impresso' }));
+  });
+});
+
 describe('batimento do agente', () => {
   it('o agente diz que está vivo; a equipe do balcão vê; outra conta não bate pelo agente', async () => {
     const { error } = await agente.db.rpc('batimento_agente', {
