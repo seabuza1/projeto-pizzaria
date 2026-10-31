@@ -1,4 +1,5 @@
 export * from './acerto';
+export * from './despacho';
 export * from './dinheiro';
 export * from './entrada';
 export * from './explicacao';
