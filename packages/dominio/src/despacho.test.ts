@@ -12,7 +12,7 @@ const pedido = (id: string, criadoEm: string, extra: Partial<PedidoDespacho> = {
   id,
   codigo: id,
   tipo: 'entrega',
-  estado: 'aberto',
+  estado: 'em_producao',
   criadoEm: `2026-10-16T${criadoEm}:00Z`,
   ...extra,
 });
@@ -51,7 +51,7 @@ describe('situação do Pix antecipado (PAG5)', () => {
 });
 
 describe('prontos para sair (F1, despacho; ENT6)', () => {
-  it('entregas abertas sem saída, por ordem de balcão, com a situação do Pix', () => {
+  it('entregas autorizadas sem saída, por ordem de balcão, com a situação do Pix', () => {
     const pedidos = [
       pedido('8498', '22:10'),
       pedido('3557', '22:00'),
@@ -100,6 +100,19 @@ describe('pendências do fechamento (F1, Fluxo da noite, 7; ERROS-PREVISTOS)', (
     expect(p.semSaida).toEqual([]);
     expect(p.caixasSemAcerto).toEqual(['joao']);
     expect(p.pixSemCaiu.map((x) => x.codigo)).toEqual(['0017']);
+    expect(p.total).toBe(2);
+  });
+
+  it('o cliente sumiu no meio da conversa: lista o rascunho e o que aguarda o cliente', () => {
+    const p = pendenciasDaNoite({
+      pedidos: [pedido('8498', '22:10', { estado: 'rascunho' }), pedido('1693', '22:20', { estado: 'aguardando' })],
+      saidas: [],
+      pagamentos: [],
+      caixas: [],
+      acertos: [],
+    });
+    expect(p.rascunhos.map((x) => x.codigo)).toEqual(['8498', '1693']);
+    expect(p.semSaida).toEqual([]);
     expect(p.total).toBe(2);
   });
 

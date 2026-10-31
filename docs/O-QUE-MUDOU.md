@@ -30,3 +30,8 @@ Escrito para o Luan e a gerente. Uma linha por mudança que aparece na tela, com
 | 31/10/2026 | "Acabou hoje" no cardápio: o atendimento, o Luan ou a gerente marcam o item que acabou; ele some só nesta noite e volta sozinho na seguinte. | Quem atende: marcar quando acabar. |
 | 31/10/2026 | Promoção da noite no painel: ao abrir a noite, o Luan ou a gerente digita o desconto (de R$ 3 a R$ 23) ou toca em "Sem promoção". Até lá, aparece "Promoção da noite não definida". | Luan ou gerente: definir a promoção toda noite. |
 | 31/10/2026 | Conta "Atendimento" para o computador do balcão. | Não. |
+| 31/10/2026 | Tela "Atendimento": telefone primeiro (o código são os 4 últimos dígitos), itens com busca ("frango" mostra as opções), meio a meio tocando no segundo sabor, borda, adicional, bebida e combo; entrega com área e endereço ou retirada; forma de pagamento e troco; total com a promoção. | Atendimento: digitar o pedido durante a conversa no WhatsApp. |
+| 31/10/2026 | "Mandar resumo" abre a conversa do cliente com o texto pronto; "Autorizado" (dois toques) manda para a produção e o pedido aparece no despacho do Luan. | Atendimento: só autorizar depois do "pode mandar" do cliente. |
+| 31/10/2026 | Se outro aparelho está atendendo o mesmo telefone, aparece "Atendendo 3557 em outro aparelho há 2 min" com "Assumir". Código repetido na noite pede confirmação. | Não. |
+| 31/10/2026 | Retirada: "Avisar" abre a conversa com "Seu pedido está pronto para retirada"; "Retirado" encerra. | Atendimento: avisar e marcar quando o cliente buscar. |
+| 31/10/2026 | Se ninguém abriu a noite, o primeiro pedido abre. O fechamento da noite também lista os rascunhos abertos. | Não. |

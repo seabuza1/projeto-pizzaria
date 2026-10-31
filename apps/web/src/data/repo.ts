@@ -15,6 +15,8 @@ import {
   type ContaAcerto,
   calcularAcerto,
   type Forma,
+  type ItemPedido,
+  type LinhaDoPedido,
   pagamentosDaSaida,
   pendenciasDaNoite,
   prontosParaSair,
@@ -30,6 +32,7 @@ import {
   type Noite,
   type Pagamento,
   type Pedido,
+  type PedidoItem,
   type Perfil,
   type Saida,
 } from './banco-local';
@@ -53,6 +56,7 @@ export type {
   Noite,
   Pagamento,
   Pedido,
+  PedidoItem,
   Perfil,
   Sabor,
   Saida,
@@ -102,10 +106,11 @@ async function enviarErrosGuardados() {
   for (const item of guardados) await supabase.rpc('registrar_erro', { p_erro: item as never });
 }
 
+const aparelho = idDoAparelho();
 const motor = new Motor({
   supabase,
   banco,
-  aparelho: idDoAparelho(),
+  aparelho,
   aoRecusar: (motivo) => mostrarAviso(motivo, { tipo: 'erro' }),
   aoBloquear: (b) => mudarBloqueio(b),
   aoErro: (erro, contexto) => void registrarErro(erro, contexto),
@@ -299,6 +304,64 @@ export const useAcabou = (noiteId: string | undefined) =>
     new Set<string>(),
   );
 
+/** O cardápio de venda da noite: sem inativos nem o que acabou hoje. */
+export function useCardapioDeVenda(noiteId: string | undefined): Cardapio | null | undefined {
+  const linhas = useLinhasCardapio();
+  const acabou = useAcabou(noiteId);
+  return linhas && cardapioDeVenda(linhas, acabou);
+}
+
+/** Cliente pelo telefone completo (F2, 2a), do aparelho. */
+export const useCliente = (telefone: string | null) =>
+  useLiveQuery(
+    async () => (telefone ? ((await banco.clientes.where('telefone').equals(telefone).first()) ?? null) : null),
+    [telefone],
+  );
+
+export interface PedidoAnterior {
+  pedido: Pedido;
+  itens: PedidoItem[];
+}
+
+/** Os últimos 5 pedidos do telefone, de qualquer noite (precisa de internet; sem ela, a lista fica vazia). */
+export function useUltimosPedidos(telefone: string | null): PedidoAnterior[] {
+  const [lista, setLista] = useState<PedidoAnterior[]>([]);
+  useEffect(() => {
+    setLista([]);
+    if (!telefone) return;
+    let vale = true;
+    void (async () => {
+      const { data: pedidos } = await supabase
+        .from('pedidos')
+        .select('*')
+        .eq('telefone', telefone)
+        .not('autorizado_em', 'is', null)
+        .order('criado_em', { ascending: false })
+        .limit(5);
+      if (!pedidos?.length) return;
+      const { data: itens } = await supabase
+        .from('pedido_itens')
+        .select('*')
+        .in(
+          'pedido_id',
+          pedidos.map((p) => p.id),
+        )
+        .is('anulado_em', null)
+        .order('ordem');
+      if (vale) {
+        setLista(pedidos.map((pedido) => ({ pedido, itens: (itens ?? []).filter((i) => i.pedido_id === pedido.id) })));
+      }
+    })();
+    return () => {
+      vale = false;
+    };
+  }, [telefone]);
+  return lista;
+}
+
+/** Este aparelho, para a trava de atendimento. */
+export const meuAparelho = () => aparelho;
+
 /** Cardápio de venda (sem inativos nem o que acabou hoje), já no formato de @mel/dominio. */
 export function cardapioDeVenda(linhas: LinhasCardapio, acabou: ReadonlySet<string>): Cardapio | null {
   return linhas.faixas.length === 0 ? null : cardapioDasLinhas(linhas, acabou);
@@ -323,6 +386,8 @@ export function useNoite() {
 export interface DadosNoite {
   caixas: Caixa[];
   pedidos: Pedido[];
+  /** Itens dos pedidos autorizados (a fotografia do preço). */
+  itens?: PedidoItem[];
   saidas: Saida[];
   pagamentos: Pagamento[];
   acertos: Acerto[];
@@ -330,17 +395,19 @@ export interface DadosNoite {
 
 export function useDadosNoite(noiteId: string | undefined): DadosNoite | undefined {
   return useLiveQuery(async () => {
-    if (!noiteId) return { caixas: [], pedidos: [], saidas: [], pagamentos: [], acertos: [] };
-    const [caixas, pedidos, saidas, pagamentos, acertos] = await Promise.all([
+    if (!noiteId) return { caixas: [], pedidos: [], itens: [], saidas: [], pagamentos: [], acertos: [] };
+    const [caixas, pedidos, saidas, pagamentos, acertos, itens] = await Promise.all([
       banco.caixas.where('noite_id').equals(noiteId).toArray(),
       banco.pedidos.where('noite_id').equals(noiteId).toArray(),
       banco.saidas.where('noite_id').equals(noiteId).toArray(),
       banco.pagamentos.where('noite_id').equals(noiteId).toArray(),
       banco.acertos.where('noite_id').equals(noiteId).toArray(),
+      banco.pedido_itens.where('noite_id').equals(noiteId).toArray(),
     ]);
     return {
       caixas: caixas.sort((a, b) => a.ordem_chegada - b.ordem_chegada),
       pedidos,
+      itens: itens.filter((i) => !i.anulado_em).sort((a, b) => a.ordem - b.ordem),
       saidas: saidas.sort((a, b) => a.criado_em.localeCompare(b.criado_em)),
       pagamentos,
       acertos: acertos.filter((a) => !a.reaberto_em),
@@ -524,6 +591,56 @@ export const acoes = {
   marcarAcabou: (p: DadosDe<'marcar_acabou'>) => executar('marcar_acabou', p),
   /** PED4: 0 = sem promoção. */
   definirPromocao: (noiteId: string, desconto: number) => executar('definir_promocao', { noite_id: noiteId, desconto }),
+  /** F2, 2b: rascunho, aguardando cliente ou autorizar. Devolve o id do pedido. */
+  async salvarPedido(
+    p: Omit<DadosDe<'salvar_pedido'>, 'aparelho' | 'pedido_id' | 'versao_esperada' | 'itens' | 'pagamentos'> & {
+      pedido_id?: string;
+      itens: readonly { item: ItemPedido; linha: LinhaDoPedido }[];
+      pagamentos: readonly LinhaPagamento[];
+    },
+  ) {
+    const pedidoId = p.pedido_id ?? novoId();
+    const atual = await banco.pedidos.get(pedidoId);
+    await executar('salvar_pedido', {
+      ...p,
+      pedido_id: pedidoId,
+      // Sem noite aberta, o primeiro pedido abre uma (o servidor usa a de hoje, se já houver).
+      noite_id: p.noite_id ?? atual?.noite_id ?? novoId(),
+      // A fotografia de cada linha, calculada por @mel/dominio (preco.ts).
+      itens: p.itens.map(({ item, linha }) => ({
+        item: item as unknown as Record<string, unknown>,
+        nome: linha.nome,
+        detalhes: linha.detalhes,
+        faixa_cobrada: linha.faixaCobrada,
+        unitario: linha.unitario,
+        desconto: linha.desconto,
+        quantidade: linha.quantidade,
+        total: linha.total,
+      })),
+      pagamentos: paraLinhasDb(p.pagamentos),
+      aparelho,
+      // Alterar depois de autorizado confere a versão (Conflitos e concorrência).
+      ...(atual?.estado === 'em_producao' ? { versao_esperada: atual.versao } : {}),
+    });
+    return pedidoId;
+  },
+  assumirPedido: (pedidoId: string) => executar('assumir_pedido', { pedido_id: pedidoId, aparelho }),
+  async cancelarPedido(pedidoId: string, motivo: string) {
+    return executar('cancelar_pedido', {
+      pedido_id: pedidoId,
+      motivo,
+      versao_esperada: (await banco.pedidos.get(pedidoId))?.versao ?? 0,
+    });
+  },
+  async marcarRetirado(pedidoId: string, linhas?: LinhaPagamento[]) {
+    return executar('marcar_retirado', {
+      pedido_id: pedidoId,
+      versao_esperada: (await banco.pedidos.get(pedidoId))?.versao ?? 0,
+      ...(linhas?.length ? { pagamentos: paraLinhasDb(linhas) } : {}),
+    });
+  },
+  salvarCliente: (c: Omit<DadosDe<'salvar_cliente'>, 'cliente_id'>) =>
+    executar('salvar_cliente', { ...c, cliente_id: novoId() }),
   salvarMotoboy: (m: { id?: string; nome: string; ativo: boolean }) =>
     executar('salvar_motoboy', { motoboy_id: m.id ?? novoId(), nome: m.nome, ativo: m.ativo }),
 };

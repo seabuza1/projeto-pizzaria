@@ -24,7 +24,15 @@ export interface OpcoesMotor {
   aoErro?: (erro: unknown, contexto: string) => void;
 }
 
-const TABELAS_DA_NOITE = ['caixas', 'pedidos', 'saidas', 'pagamentos', 'acertos', 'impressoes'] as const;
+const TABELAS_DA_NOITE = [
+  'caixas',
+  'pedidos',
+  'saidas',
+  'pagamentos',
+  'acertos',
+  'impressoes',
+  'pedido_itens',
+] as const;
 const TABELAS_GERAIS = [
   'noites',
   'areas',
@@ -217,10 +225,11 @@ export class Motor {
             supabase.from('acertos').select('*').eq('noite_id', noite.id),
             supabase.from('impressoes').select('*').eq('noite_id', noite.id).order('criado_em', { ascending: false }),
             supabase.from('cardapio_acabou').select('*').eq('noite_id', noite.id),
+            supabase.from('pedido_itens').select('*').eq('noite_id', noite.id),
           ])
-        : [vazio, vazio, vazio, vazio, vazio, vazio, vazio];
+        : [vazio, vazio, vazio, vazio, vazio, vazio, vazio, vazio];
       for (const r of daNoite) if (r.error) throw r.error;
-      const [caixas, pedidos, saidas, pagamentos, acertos, impressoes, acabou] = daNoite;
+      const [caixas, pedidos, saidas, pagamentos, acertos, impressoes, acabou, itens] = daNoite;
 
       const usuarioId = this.usuarioId ?? '';
       await banco.transaction('rw', [...banco.tabelasDeDados, banco.fila], async () => {
@@ -244,6 +253,7 @@ export class Motor {
         await banco.cardapio_combos.bulkPut(combos.data ?? []);
         await banco.clientes.bulkPut(clientes.data ?? []);
         await banco.cardapio_acabou.bulkPut((acabou.data ?? []) as never[]);
+        await banco.pedido_itens.bulkPut((itens.data ?? []) as never[]);
         // O que ainda não subiu continua valendo na tela.
         for (const op of await banco.fila.orderBy('seq').toArray()) await aplicarLocal(banco, op, { usuarioId });
       });

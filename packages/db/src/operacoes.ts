@@ -24,6 +24,19 @@ export const pagamentoLancado = z.object({
 });
 export type PagamentoLancadoDb = z.infer<typeof pagamentoLancado>;
 
+/** Linha do pedido: o item como foi pedido e a fotografia do preço (packages/dominio/src/preco.ts). */
+const linhaDoPedido = z.object({
+  item: z.record(z.string(), z.unknown()),
+  nome: z.string().trim().min(1).max(200),
+  detalhes: z.array(z.string().max(100)).max(20),
+  faixa_cobrada: faixaPizza.nullable(),
+  unitario: centavos,
+  desconto: centavos,
+  quantidade: z.number().int().min(1).max(99),
+  total: centavos,
+});
+const aparelho = z.string().max(80);
+
 const dadosPorTipo = {
   abrir_noite: z.object({ noite_id: id }),
   fechar_noite: z.object({ noite_id: id }),
@@ -175,6 +188,34 @@ const dadosPorTipo = {
     local_referencia: textoOpcional(300),
     area_id: id.nullable().optional(),
   }),
+  salvar_pedido: z.object({
+    pedido_id: id,
+    noite_id: id.optional(),
+    /** rascunho (digitando), aguardando (resumo mandado) ou autorizar (vai para a produção; PED6). */
+    etapa: z.enum(['rascunho', 'aguardando', 'autorizar']),
+    telefone: z.string().regex(/^\d{10,11}$/),
+    tipo: z.enum(['entrega', 'retirada']),
+    area_id: id.nullable().optional(),
+    itens: z.array(linhaDoPedido).max(40),
+    pagamentos: z.array(pagamentoLancado).max(6),
+    troco_para: positivo.nullable().optional(),
+    promocao: z.boolean(),
+    endereco_link: textoOpcional(500),
+    endereco_texto: textoOpcional(300),
+    endereco_referencia: textoOpcional(300),
+    local_pendente: z.boolean(),
+    obs: textoOpcional(500),
+    aparelho,
+    /** Só para alterar um pedido já autorizado. */
+    versao_esperada: versao.optional(),
+  }),
+  assumir_pedido: z.object({ pedido_id: id, aparelho }),
+  cancelar_pedido: z.object({ pedido_id: id, motivo, versao_esperada: versao }),
+  marcar_retirado: z.object({
+    pedido_id: id,
+    versao_esperada: versao,
+    pagamentos: z.array(pagamentoLancado).max(6).optional(),
+  }),
   salvar_motoboy: z.object({ motoboy_id: id, nome: z.string().trim().min(1).max(60), ativo: z.boolean() }),
   salvar_perfil: z.object({
     perfil_id: id,
@@ -223,6 +264,10 @@ export const donoDaOperacao: Record<TipoOperacao, string> = {
   marcar_acabou: 'cardapio',
   definir_promocao: 'expedicao',
   salvar_cliente: 'nucleo',
+  salvar_pedido: 'atendimento',
+  assumir_pedido: 'atendimento',
+  cancelar_pedido: 'atendimento',
+  marcar_retirado: 'atendimento',
 };
 
 /** Versão do formato das operações. O servidor aceita esta e a anterior (interno.versao_op_atual). */

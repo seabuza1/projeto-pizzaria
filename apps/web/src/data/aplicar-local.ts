@@ -25,20 +25,57 @@ export async function saidaMaisRecente(db: BancoLocal, pedidoId: string): Promis
   return ativas(await db.saidas.where('pedido_id').equals(pedidoId).toArray()).at(-1);
 }
 
-// A comanda de papel sem saída foi desfeita; o pedido do balcão sem saída volta para o despacho.
+// A comanda de papel sem saída foi desfeita; o pedido do balcão sem saída volta para "em produção" (despacho).
 async function atualizarEstadoPedido(db: BancoLocal, pedidoId: string) {
   const pedido = await db.pedidos.get(pedidoId);
-  if (!pedido || pedido.estado === 'cancelado') return;
+  if (!pedido || ['cancelado', 'retirado', 'rascunho', 'aguardando'].includes(pedido.estado)) return;
   const saidas = ativas(await db.saidas.where('pedido_id').equals(pedidoId).toArray());
   const estado =
     saidas.length === 0
       ? pedido.origem === 'papel'
         ? 'cancelado'
-        : 'aberto'
+        : 'em_producao'
       : saidas.some((s) => s.estado === 'entregue')
         ? 'entregue'
         : 'aberto';
   await db.pedidos.update(pedidoId, { estado });
+}
+
+/** Pedido novo com os campos do atendimento vazios (a comanda de papel e o rascunho partem daqui). */
+function pedidoVazio(
+  base: Pick<Pedido, 'id' | 'noite_id' | 'codigo' | 'origem' | 'tipo' | 'total' | 'estado'>,
+  hora: string,
+  uid: string,
+): Pedido {
+  return {
+    area_id: null,
+    promocao: false,
+    obs: null,
+    criado_por: uid,
+    versao: 1,
+    atualizado_por: uid,
+    telefone: null,
+    cliente_id: null,
+    atendimento: null,
+    troco_para: null,
+    local_pendente: false,
+    endereco_link: null,
+    endereco_texto: null,
+    endereco_referencia: null,
+    atendendo_por: null,
+    atendendo_aparelho: null,
+    atendendo_desde: null,
+    autorizado_em: null,
+    autorizado_por: null,
+    alterado: false,
+    retirado_em: null,
+    cancelado_em: null,
+    cancelado_por: null,
+    motivo_cancelamento: null,
+    criado_em: hora,
+    atualizado_em: hora,
+    ...base,
+  };
 }
 
 function novaSaida(
@@ -206,21 +243,20 @@ const aplicadores: { [T in TipoOperacao]: Aplicador<T> } = {
     const area = await db.areas.get(d.area_id);
     if (!caixa || !area) return;
     const pedido: Pedido = {
-      id: d.pedido_id,
-      noite_id: caixa.noite_id,
-      codigo: d.codigo,
-      origem: 'papel',
-      tipo: 'entrega',
+      ...pedidoVazio(
+        {
+          id: d.pedido_id,
+          noite_id: caixa.noite_id,
+          codigo: d.codigo,
+          origem: 'papel',
+          tipo: 'entrega',
+          total: d.total,
+          estado: 'aberto',
+        },
+        op.criada_em,
+        ctx.usuarioId,
+      ),
       area_id: area.id,
-      total: d.total,
-      promocao: false,
-      estado: 'aberto',
-      obs: null,
-      criado_por: ctx.usuarioId,
-      versao: 1,
-      atualizado_por: ctx.usuarioId,
-      criado_em: op.criada_em,
-      atualizado_em: op.criada_em,
     };
     await db.pedidos.put(pedido);
     await db.saidas.put(novaSaida(pedido, caixa, area, d.saida_id, op.criada_em));
@@ -516,6 +552,143 @@ const aplicadores: { [T in TipoOperacao]: Aplicador<T> } = {
       criado_em: atual?.criado_em ?? op.criada_em,
       atualizado_em: op.criada_em,
     });
+  },
+  async salvar_pedido(db, d, op, ctx) {
+    const atual = await db.pedidos.get(d.pedido_id);
+    // O primeiro pedido abre a noite, se ninguém abriu (o servidor confere a data).
+    let noiteId = atual?.noite_id ?? d.noite_id;
+    if (!atual) {
+      const noites = await db.noites.toArray();
+      const aberta = noites.find((n) => n.id === d.noite_id && !n.fechada_em) ?? noites.find((n) => !n.fechada_em);
+      if (aberta) noiteId = aberta.id;
+      else if (d.noite_id) await aplicadores.abrir_noite(db, { noite_id: d.noite_id }, op as never, ctx);
+    }
+    if (!noiteId) return;
+    const area = d.tipo === 'entrega' && d.area_id ? await db.areas.get(d.area_id) : undefined;
+    const total = d.itens.reduce((s, l) => s + l.total, 0) + (area?.taxa ?? 0);
+    const autorizar = d.etapa === 'autorizar';
+    const estado: Pedido['estado'] =
+      autorizar || atual?.estado === 'em_producao'
+        ? 'em_producao'
+        : d.etapa === 'aguardando'
+          ? 'aguardando'
+          : 'rascunho';
+    const base =
+      atual ??
+      pedidoVazio(
+        { id: d.pedido_id, noite_id: noiteId, codigo: '', origem: 'whatsapp', tipo: d.tipo, total, estado },
+        op.criada_em,
+        ctx.usuarioId,
+      );
+    await db.pedidos.put({
+      ...base,
+      codigo: d.telefone.slice(-4),
+      telefone: d.telefone,
+      tipo: d.tipo,
+      area_id: area?.id ?? null,
+      total,
+      promocao: d.promocao,
+      troco_para: d.troco_para ?? null,
+      local_pendente: d.local_pendente,
+      endereco_link: d.endereco_link ?? null,
+      endereco_texto: d.endereco_texto ?? null,
+      endereco_referencia: d.endereco_referencia ?? null,
+      obs: d.obs ?? null,
+      atendimento: { itens: d.itens, pagamentos: d.pagamentos } as never,
+      estado,
+      alterado: base.alterado || base.estado === 'em_producao',
+      autorizado_em: autorizar ? (base.autorizado_em ?? op.criada_em) : base.autorizado_em,
+      autorizado_por: autorizar ? (base.autorizado_por ?? ctx.usuarioId) : base.autorizado_por,
+      atendendo_por: autorizar ? null : ctx.usuarioId,
+      atendendo_aparelho: autorizar ? null : d.aparelho,
+      atendendo_desde: autorizar ? null : op.criada_em,
+      atualizado_em: op.criada_em,
+    });
+    if (autorizar) {
+      const pedido = (await db.pedidos.get(d.pedido_id)) as Pedido;
+      for (const item of await db.pedido_itens.where('pedido_id').equals(d.pedido_id).toArray()) {
+        if (!item.anulado_em) await db.pedido_itens.update(item.id, { anulado_em: op.criada_em });
+      }
+      await db.pedido_itens.bulkPut(
+        d.itens.map((l, i) => ({
+          id: `${op.id}-${i}`,
+          noite_id: noiteId,
+          pedido_id: d.pedido_id,
+          ordem: i + 1,
+          item: l.item as never,
+          nome: l.nome,
+          detalhes: l.detalhes,
+          faixa_cobrada: l.faixa_cobrada,
+          unitario: l.unitario,
+          desconto: l.desconto,
+          quantidade: l.quantidade,
+          total: l.total,
+          anulado_em: null,
+          criado_em: op.criada_em,
+          atualizado_em: op.criada_em,
+        })),
+      );
+      const previstos = (await db.pagamentos.where('pedido_id').equals(d.pedido_id).toArray()).filter(
+        (p) => !p.anulado_em && !p.real,
+      );
+      await anular(
+        db,
+        previstos.map((p) => p.id),
+        'Pedido alterado',
+        op,
+        ctx,
+      );
+      await db.pagamentos.bulkPut(
+        novosPagamentos(pedido, '', d.pagamentos, false, op.criada_em).map((p) => ({ ...p, saida_id: null })),
+      );
+    }
+    await tocarPedido(db, d.pedido_id, ctx);
+  },
+  async assumir_pedido(db, d, op, ctx) {
+    await db.pedidos.update(d.pedido_id, {
+      atendendo_por: ctx.usuarioId,
+      atendendo_aparelho: d.aparelho,
+      atendendo_desde: op.criada_em,
+    });
+  },
+  async cancelar_pedido(db, d, op, ctx) {
+    for (const s of ativas(await db.saidas.where('pedido_id').equals(d.pedido_id).toArray())) {
+      await db.saidas.update(s.id, {
+        cancelada_em: op.criada_em,
+        cancelada_por: ctx.usuarioId,
+        motivo_cancelamento: d.motivo,
+      });
+      await tocarCaixa(db, s.caixa_id, ctx);
+    }
+    const pagamentos = await db.pagamentos.where('pedido_id').equals(d.pedido_id).toArray();
+    await anular(
+      db,
+      pagamentos.filter((p) => !p.anulado_em).map((p) => p.id),
+      d.motivo,
+      op,
+      ctx,
+    );
+    await db.pedidos.update(d.pedido_id, {
+      estado: 'cancelado',
+      cancelado_em: op.criada_em,
+      cancelado_por: ctx.usuarioId,
+      motivo_cancelamento: d.motivo,
+      atendendo_por: null,
+      atendendo_aparelho: null,
+      atendendo_desde: null,
+    });
+    await tocarPedido(db, d.pedido_id, ctx);
+  },
+  async marcar_retirado(db, d, op, ctx) {
+    const pedido = await db.pedidos.get(d.pedido_id);
+    if (!pedido) return;
+    if (d.pagamentos?.length) {
+      await db.pagamentos.bulkPut(
+        novosPagamentos(pedido, '', d.pagamentos, true, op.criada_em).map((p) => ({ ...p, saida_id: null })),
+      );
+    }
+    await db.pedidos.update(d.pedido_id, { estado: 'retirado', retirado_em: op.criada_em });
+    await tocarPedido(db, d.pedido_id, ctx);
   },
   async salvar_perfil(db, d) {
     await db.perfis.update(d.perfil_id, {

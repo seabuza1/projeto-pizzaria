@@ -5,7 +5,8 @@ export interface PedidoDespacho {
   id: string;
   codigo: string;
   tipo: 'entrega' | 'retirada' | 'mesa';
-  estado: 'aberto' | 'entregue' | 'cancelado';
+  /** F2: rascunho → aguardando → em produção (autorizado) → aberto (saiu) ou retirado · cancelado. */
+  estado: 'rascunho' | 'aguardando' | 'em_producao' | 'aberto' | 'entregue' | 'retirado' | 'cancelado';
   /** Ordem de balcão (ENT6). ISO 8601, hora do servidor. */
   criadoEm: string;
 }
@@ -46,7 +47,7 @@ export function situacaoPix(pedidoId: string, pagamentos: readonly PagamentoDesp
 }
 
 /**
- * Pedidos de entrega que ainda não saíram, por ordem de balcão (ENT6).
+ * Pedidos de entrega autorizados (PED6) que ainda não saíram, por ordem de balcão (ENT6).
  * Uma saída cancelada devolve o pedido para a lista (ERROS-PREVISTOS: despachou para o motoboy errado).
  */
 export function prontosParaSair<P extends PedidoDespacho>(
@@ -56,7 +57,7 @@ export function prontosParaSair<P extends PedidoDespacho>(
 ): ProntoParaSair<P>[] {
   const comSaida = new Set(saidas.filter((s) => !s.cancelada).map((s) => s.pedidoId));
   return pedidos
-    .filter((p) => p.tipo === 'entrega' && p.estado === 'aberto' && !comSaida.has(p.id))
+    .filter((p) => p.tipo === 'entrega' && p.estado === 'em_producao' && !comSaida.has(p.id))
     .sort((a, b) => a.criadoEm.localeCompare(b.criadoEm))
     .map((pedido) => ({ pedido, pix: situacaoPix(pedido.id, pagamentos) }));
 }
@@ -67,10 +68,12 @@ export interface PendenciasNoite<P extends PedidoDespacho = PedidoDespacho> {
   caixasSemAcerto: string[];
   /** Pix antecipado sem "caiu". */
   pixSemCaiu: P[];
+  /** Rascunho ou aguardando cliente (ERROS-PREVISTOS: o cliente some no meio da conversa). */
+  rascunhos: P[];
   total: number;
 }
 
-/** O que o fechamento da noite lista para o Luan resolver ou confirmar. Os rascunhos entram com a F2. */
+/** O que o fechamento da noite lista para o Luan resolver ou confirmar. */
 export function pendenciasDaNoite<P extends PedidoDespacho>(noite: {
   pedidos: readonly P[];
   saidas: readonly SaidaDespacho[];
@@ -84,10 +87,12 @@ export function pendenciasDaNoite<P extends PedidoDespacho>(noite: {
   const pixSemCaiu = noite.pedidos.filter(
     (p) => p.estado !== 'cancelado' && situacaoPix(p.id, noite.pagamentos) === 'conferir',
   );
+  const rascunhos = noite.pedidos.filter((p) => p.estado === 'rascunho' || p.estado === 'aguardando');
   return {
     semSaida,
     caixasSemAcerto,
     pixSemCaiu,
-    total: semSaida.length + caixasSemAcerto.length + pixSemCaiu.length,
+    rascunhos,
+    total: semSaida.length + caixasSemAcerto.length + pixSemCaiu.length + rascunhos.length,
   };
 }

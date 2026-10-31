@@ -1,7 +1,9 @@
 // F2, 2a e 2g: preços pela gerente, "acabou hoje" pela equipe do balcão e promoção da noite no painel.
 import { randomUUID } from 'node:crypto';
 import { expect, test } from '@playwright/test';
-import { bancoLimpo, entrarComMfa, entrarComo, ler, op, token } from './apoio';
+import { bancoLimpo, entrarComMfa, entrarComo, fecharAparelhos, ler, novoAparelho, op, token } from './apoio';
+
+test.afterEach(fecharAparelhos);
 
 test('a gerente muda o preço da G tradicional; a mudança vale no banco', async ({ page }) => {
   await bancoLimpo();
@@ -33,15 +35,16 @@ test('o atendimento marca "acabou hoje" e o painel do Luan vê em poucos segundo
   const luan = await token('luan@mel.test');
   await op(luan, 'abrir_noite', { noite_id: randomUUID() });
 
-  const balcao = await (await browser.newContext()).newPage();
+  const balcao = await (await novoAparelho(browser)).newPage();
   await entrarComo(balcao, 'atendimento@mel.test');
+  await balcao.getByRole('link', { name: 'Cardápio' }).click();
   await balcao.getByPlaceholder('Buscar no cardápio').fill('calabresa');
   // O atendimento não muda preço.
   await expect(balcao.getByLabel(/^Preço de/)).toHaveCount(0);
   await balcao.getByRole('button', { name: 'Acabou hoje: sabor Calabresa', exact: true }).click();
   await expect(balcao.getByRole('button', { name: 'Acabou hoje: sabor Calabresa', exact: true })).toHaveText('Acabou');
 
-  const celular = await (await browser.newContext()).newPage();
+  const celular = await (await novoAparelho(browser)).newPage();
   await entrarComo(celular, 'luan@mel.test');
   await celular.getByRole('link', { name: 'Cardápio' }).click();
   await celular.getByPlaceholder('Buscar no cardápio').fill('calabresa');

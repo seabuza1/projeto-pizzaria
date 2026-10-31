@@ -44,6 +44,7 @@ const TABELAS = [
   'cardapio_combos',
   'cardapio_acabou',
   'clientes',
+  'pedido_itens',
 ] as const;
 
 let felipe: Sessao;

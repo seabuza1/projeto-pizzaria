@@ -1008,57 +1008,181 @@ export type Database = {
           },
         ];
       };
+      pedido_itens: {
+        Row: {
+          anulado_em: string | null;
+          atualizado_em: string;
+          criado_em: string;
+          desconto: number;
+          detalhes: string[];
+          faixa_cobrada: Database['public']['Enums']['faixa_pizza'] | null;
+          id: string;
+          item: NonNullable<Json>;
+          noite_id: string;
+          nome: string;
+          ordem: number;
+          pedido_id: string;
+          quantidade: number;
+          total: number;
+          unitario: number;
+        };
+        ComputedFields: never;
+        Insert: {
+          anulado_em?: string | null;
+          atualizado_em?: string;
+          criado_em?: string;
+          desconto?: number;
+          detalhes?: string[];
+          faixa_cobrada?: Database['public']['Enums']['faixa_pizza'] | null;
+          id?: string;
+          item: NonNullable<Json>;
+          noite_id: string;
+          nome: string;
+          ordem: number;
+          pedido_id: string;
+          quantidade: number;
+          total: number;
+          unitario: number;
+        };
+        Update: {
+          anulado_em?: string | null;
+          atualizado_em?: string;
+          criado_em?: string;
+          desconto?: number;
+          detalhes?: string[];
+          faixa_cobrada?: Database['public']['Enums']['faixa_pizza'] | null;
+          id?: string;
+          item?: NonNullable<Json>;
+          noite_id?: string;
+          nome?: string;
+          ordem?: number;
+          pedido_id?: string;
+          quantidade?: number;
+          total?: number;
+          unitario?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'pedido_itens_noite_id_fkey';
+            columns: ['noite_id'];
+            isOneToOne: false;
+            referencedRelation: 'noites';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'pedido_itens_pedido_id_fkey';
+            columns: ['pedido_id'];
+            isOneToOne: false;
+            referencedRelation: 'pedidos';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       pedidos: {
         Row: {
+          alterado: boolean;
           area_id: string | null;
+          atendendo_aparelho: string | null;
+          atendendo_desde: string | null;
+          atendendo_por: string | null;
+          atendimento: Json | null;
           atualizado_em: string;
           atualizado_por: string | null;
+          autorizado_em: string | null;
+          autorizado_por: string | null;
+          cancelado_em: string | null;
+          cancelado_por: string | null;
+          cliente_id: string | null;
           codigo: string;
           criado_em: string;
           criado_por: string | null;
+          endereco_link: string | null;
+          endereco_referencia: string | null;
+          endereco_texto: string | null;
           estado: Database['public']['Enums']['estado_pedido'];
           id: string;
+          local_pendente: boolean;
+          motivo_cancelamento: string | null;
           noite_id: string;
           obs: string | null;
           origem: Database['public']['Enums']['origem_pedido'];
           promocao: boolean;
+          retirado_em: string | null;
+          telefone: string | null;
           tipo: Database['public']['Enums']['tipo_pedido'];
           total: number;
+          troco_para: number | null;
           versao: number;
         };
         ComputedFields: never;
         Insert: {
+          alterado?: boolean;
           area_id?: string | null;
+          atendendo_aparelho?: string | null;
+          atendendo_desde?: string | null;
+          atendendo_por?: string | null;
+          atendimento?: Json | null;
           atualizado_em?: string;
           atualizado_por?: string | null;
+          autorizado_em?: string | null;
+          autorizado_por?: string | null;
+          cancelado_em?: string | null;
+          cancelado_por?: string | null;
+          cliente_id?: string | null;
           codigo: string;
           criado_em?: string;
           criado_por?: string | null;
+          endereco_link?: string | null;
+          endereco_referencia?: string | null;
+          endereco_texto?: string | null;
           estado?: Database['public']['Enums']['estado_pedido'];
           id?: string;
+          local_pendente?: boolean;
+          motivo_cancelamento?: string | null;
           noite_id: string;
           obs?: string | null;
           origem: Database['public']['Enums']['origem_pedido'];
           promocao?: boolean;
+          retirado_em?: string | null;
+          telefone?: string | null;
           tipo?: Database['public']['Enums']['tipo_pedido'];
           total: number;
+          troco_para?: number | null;
           versao?: number;
         };
         Update: {
+          alterado?: boolean;
           area_id?: string | null;
+          atendendo_aparelho?: string | null;
+          atendendo_desde?: string | null;
+          atendendo_por?: string | null;
+          atendimento?: Json | null;
           atualizado_em?: string;
           atualizado_por?: string | null;
+          autorizado_em?: string | null;
+          autorizado_por?: string | null;
+          cancelado_em?: string | null;
+          cancelado_por?: string | null;
+          cliente_id?: string | null;
           codigo?: string;
           criado_em?: string;
           criado_por?: string | null;
+          endereco_link?: string | null;
+          endereco_referencia?: string | null;
+          endereco_texto?: string | null;
           estado?: Database['public']['Enums']['estado_pedido'];
           id?: string;
+          local_pendente?: boolean;
+          motivo_cancelamento?: string | null;
           noite_id?: string;
           obs?: string | null;
           origem?: Database['public']['Enums']['origem_pedido'];
           promocao?: boolean;
+          retirado_em?: string | null;
+          telefone?: string | null;
           tipo?: Database['public']['Enums']['tipo_pedido'];
           total?: number;
+          troco_para?: number | null;
           versao?: number;
         };
         Relationships: [
@@ -1070,10 +1194,38 @@ export type Database = {
             referencedColumns: ['id'];
           },
           {
+            foreignKeyName: 'pedidos_atendendo_por_fkey';
+            columns: ['atendendo_por'];
+            isOneToOne: false;
+            referencedRelation: 'perfis';
+            referencedColumns: ['id'];
+          },
+          {
             foreignKeyName: 'pedidos_atualizado_por_fkey';
             columns: ['atualizado_por'];
             isOneToOne: false;
             referencedRelation: 'perfis';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'pedidos_autorizado_por_fkey';
+            columns: ['autorizado_por'];
+            isOneToOne: false;
+            referencedRelation: 'perfis';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'pedidos_cancelado_por_fkey';
+            columns: ['cancelado_por'];
+            isOneToOne: false;
+            referencedRelation: 'perfis';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'pedidos_cliente_id_fkey';
+            columns: ['cliente_id'];
+            isOneToOne: false;
+            referencedRelation: 'clientes';
             referencedColumns: ['id'];
           },
           {
@@ -1301,7 +1453,7 @@ export type Database = {
     Enums: {
       ambiente: 'producao' | 'teste';
       estado_impressao: 'pendente' | 'imprimindo' | 'impresso' | 'erro';
-      estado_pedido: 'aberto' | 'entregue' | 'cancelado';
+      estado_pedido: 'aberto' | 'entregue' | 'cancelado' | 'rascunho' | 'aguardando' | 'em_producao' | 'retirado';
       estado_saida: 'separada' | 'em_rota' | 'entregue' | 'voltou';
       faixa_pizza: 'tradicional' | 'especial' | 'premium' | 'doce' | 'doce_especial';
       forma_pagamento: 'dinheiro' | 'cartao' | 'pix_maquininha' | 'pix_antecipado';
@@ -1422,7 +1574,7 @@ export const Constants = {
     Enums: {
       ambiente: ['producao', 'teste'],
       estado_impressao: ['pendente', 'imprimindo', 'impresso', 'erro'],
-      estado_pedido: ['aberto', 'entregue', 'cancelado'],
+      estado_pedido: ['aberto', 'entregue', 'cancelado', 'rascunho', 'aguardando', 'em_producao', 'retirado'],
       estado_saida: ['separada', 'em_rota', 'entregue', 'voltou'],
       faixa_pizza: ['tradicional', 'especial', 'premium', 'doce', 'doce_especial'],
       forma_pagamento: ['dinheiro', 'cartao', 'pix_maquininha', 'pix_antecipado'],

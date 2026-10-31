@@ -1,12 +1,14 @@
 // F1, "Pronto quando": o painel atualiza em poucos segundos; depois do acerto confirmado, o caixa trava.
 import { expect, test } from '@playwright/test';
-import { bancoLimpo, entrarComo, lancar, noiteComCaixaDoJoao } from './apoio';
+import { bancoLimpo, entrarComo, fecharAparelhos, lancar, noiteComCaixaDoJoao, novoAparelho } from './apoio';
+
+test.afterEach(fecharAparelhos);
 
 test('noite completa pelo painel: abre, escolhe o João, lança, Pix cai, confere e confirma', async ({ browser }) => {
   await bancoLimpo();
   // Dois aparelhos da expedição: o que um faz aparece no outro em poucos segundos (F1, tempo real).
-  const balcao = await (await browser.newContext({ viewport: { width: 412, height: 915 } })).newPage();
-  const celularLuan = await (await browser.newContext({ viewport: { width: 412, height: 915 } })).newPage();
+  const balcao = await (await novoAparelho(browser)).newPage();
+  const celularLuan = await (await novoAparelho(browser)).newPage();
 
   await entrarComo(celularLuan, 'luan@mel.test');
   await celularLuan.getByRole('button', { name: /^Abrir a noite de/ }).click();

@@ -3,10 +3,10 @@
 import { centavos, type Forma, lerValor, validarLancamento } from '@mel/dominio';
 import { useEffect, useRef, useState } from 'react';
 import { mostrarAviso } from '../../compartilhado/avisos';
+import { EditorPagamentos } from '../../compartilhado/EditorPagamentos';
 import { marcarEdicao } from '../../compartilhado/edicao';
 import { Botao, Chip, curto, Folha, NOME_FORMA } from '../../compartilhado/ui';
 import { acoes, areaSugerida, type LinhaPagamento, type Pedido, useAreas } from '../../data/repo';
-import { EditorPagamentos } from './EditorPagamentos';
 
 const FORMAS: Forma[] = ['dinheiro', 'cartao', 'pix_maquininha', 'pix_antecipado'];
 

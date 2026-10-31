@@ -1,9 +1,9 @@
 // Menu do código (F1, Fluxo da noite, passo 4): voltou, saiu de novo, trocou a forma e cancelar a saída.
 import { useState } from 'react';
 import { mostrarAviso } from '../../compartilhado/avisos';
+import { EditorPagamentos } from '../../compartilhado/EditorPagamentos';
 import { Botao, Chip, curto, DoisToques, Folha, reais } from '../../compartilhado/ui';
 import { acoes, type Pagamento, type Pedido, type Saida, useAreas } from '../../data/repo';
-import { EditorPagamentos } from './EditorPagamentos';
 
 export function MenuSaida({
   saida,

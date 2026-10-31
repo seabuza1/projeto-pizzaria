@@ -19,6 +19,7 @@ export function FecharNoite({
     { rotulo: 'Pedido sem saída', itens: p.semSaida.map((x) => x.codigo), numero: true },
     { rotulo: 'Caixa sem acerto', itens: p.caixasSemAcerto.map(nomeDoCaixa), numero: false },
     { rotulo: 'Pix sem "caiu"', itens: p.pixSemCaiu.map((x) => x.codigo), numero: true },
+    { rotulo: 'Rascunho aberto', itens: p.rascunhos.map((x) => x.codigo), numero: true },
   ].filter((l) => l.itens.length > 0);
 
   return (

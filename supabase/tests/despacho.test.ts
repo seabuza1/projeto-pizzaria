@@ -80,7 +80,7 @@ describe('despacho (F1, ENT6)', () => {
     aplicada(await luan.op('cancelar_saida', { saida_id: errada, versao_esperada: await versaoDoPedido(p1) }));
 
     const [pedido] = await sql`select estado from public.pedidos where id = ${p1}`;
-    expect(pedido?.estado).toBe('aberto');
+    expect(pedido?.estado).toBe('em_producao');
     expect(await pagamentosDo(p1)).toEqual([{ forma: 'dinheiro', saida_id: null, anulado_em: null }]);
 
     const certa = await despachar('pedro', p1);

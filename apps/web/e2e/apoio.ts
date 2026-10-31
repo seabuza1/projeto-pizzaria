@@ -1,7 +1,7 @@
 // Apoio dos testes de ponta a ponta: contas do seed.sql e operações pela API, como o app faria.
 import { execFileSync } from 'node:child_process';
 import { createHmac, randomUUID } from 'node:crypto';
-import { expect, type Page } from '@playwright/test';
+import { type Browser, type BrowserContext, expect, type Page } from '@playwright/test';
 
 const status = JSON.parse(
   execFileSync('pnpm', ['exec', 'supabase', 'status', '-o', 'json'], {
@@ -134,9 +134,9 @@ export function pedidoDoBalcao(noiteId: string, codigo: string, reais: number, a
   const pedidoId = randomUUID();
   const centavos = Math.round(reais * 100);
   const sql = `
-    insert into public.pedidos (id, noite_id, codigo, origem, tipo, area_id, total)
+    insert into public.pedidos (id, noite_id, codigo, origem, tipo, area_id, total, estado)
     values ('${pedidoId}', '${noiteId}', '${codigo}', 'whatsapp', 'entrega',
-      (select id from public.areas where nome = '${area}'), ${centavos});
+      (select id from public.areas where nome = '${area}'), ${centavos}, 'em_producao');
     insert into public.pagamentos (noite_id, pedido_id, forma, valor)
     values ('${noiteId}', '${pedidoId}', '${forma}', ${centavos});`;
   execFileSync(
@@ -148,4 +148,18 @@ export function pedidoDoBalcao(noiteId: string, codigo: string, reais: number, a
     },
   );
   return pedidoId;
+}
+
+// Aparelhos extras de um teste. Fechar no fim: um aparelho esquecido aberto reconecta depois do reset
+// do banco e manda o que tinha na fila (o rascunho salvo sozinho abriria a noite do teste seguinte).
+const aparelhos: BrowserContext[] = [];
+
+export async function novoAparelho(browser: Browser): Promise<BrowserContext> {
+  const contexto = await browser.newContext({ viewport: { width: 412, height: 915 } });
+  aparelhos.push(contexto);
+  return contexto;
+}
+
+export async function fecharAparelhos() {
+  for (const contexto of aparelhos.splice(0)) await contexto.close();
 }

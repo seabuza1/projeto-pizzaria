@@ -21,6 +21,7 @@ export type Bebida = Tables<'cardapio_bebidas'>;
 export type Combo = Tables<'cardapio_combos'>;
 export type Acabou = Tables<'cardapio_acabou'>;
 export type Cliente = Tables<'clientes'>;
+export type PedidoItem = Tables<'pedido_itens'>;
 
 export interface OperacaoNaFila extends Operacao {
   seq: number;
@@ -62,6 +63,7 @@ export class BancoLocal extends Dexie {
   cardapio_combos!: EntityTable<Combo, 'id'>;
   cardapio_acabou!: EntityTable<Acabou, 'id'>;
   clientes!: EntityTable<Cliente, 'id'>;
+  pedido_itens!: EntityTable<PedidoItem, 'id'>;
   fila!: EntityTable<OperacaoNaFila, 'id'>;
   recusas!: EntityTable<Recusa, 'id'>;
   meta!: EntityTable<Meta, 'chave'>;
@@ -96,6 +98,8 @@ export class BancoLocal extends Dexie {
       cardapio_acabou: 'id, noite_id, item_id',
       clientes: 'id, &telefone',
     });
+    // F2, 2b: itens do pedido (a fotografia do preço).
+    this.version(4).stores({ pedido_itens: 'id, noite_id, pedido_id' });
   }
 
   /** Tabelas com dados da noite (e as de cadastro), na ordem em que a sincronização grava. */
@@ -120,6 +124,7 @@ export class BancoLocal extends Dexie {
       this.cardapio_combos,
       this.cardapio_acabou,
       this.clientes,
+      this.pedido_itens,
     ];
   }
 

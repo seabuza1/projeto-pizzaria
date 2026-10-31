@@ -150,7 +150,7 @@ export async function limpar(tentativa = 1): Promise<void> {
   try {
     await sql`
       truncate public.cardapio_acabou, public.cardapio_faixas, public.cardapio_sabores, public.cardapio_bordas,
-        public.cardapio_adicionais, public.cardapio_bebidas, public.cardapio_combos, public.clientes,
+        public.cardapio_adicionais, public.cardapio_bebidas, public.cardapio_combos, public.clientes, public.pedido_itens,
         public.eventos, public.operacoes, public.impressoes, public.sobras, public.faltas, public.acertos,
         public.pagamentos, public.saidas, public.pedidos, public.caixas, public.noites, public.erros cascade`;
     // O cardápio volta ao do JSON (o mesmo seed do supabase db reset).
@@ -239,8 +239,9 @@ export async function pedidoDoBalcao(
   pagamentos: ReturnType<typeof pg>[],
 ): Promise<string> {
   const pedidoId = novoId();
-  await sql`insert into public.pedidos (id, noite_id, codigo, origem, tipo, area_id, total)
-    values (${pedidoId}, ${noiteId}, ${codigo}, 'whatsapp', 'entrega', ${areaId}, ${Math.round(totalReais * 100)})`;
+  await sql`insert into public.pedidos (id, noite_id, codigo, origem, tipo, area_id, total, estado)
+    values (${pedidoId}, ${noiteId}, ${codigo}, 'whatsapp', 'entrega', ${areaId}, ${Math.round(totalReais * 100)},
+      'em_producao')`;
   for (const p of pagamentos) {
     await sql`insert into public.pagamentos (id, noite_id, pedido_id, forma, valor, troco_pix)
       values (${p.id}, ${noiteId}, ${pedidoId}, ${p.forma}, ${p.valor}, ${p.troco_pix ?? 0})`;
