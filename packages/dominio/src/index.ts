@@ -6,6 +6,7 @@ export * from './despacho';
 export * from './dinheiro';
 export * from './entrada';
 export * from './explicacao';
+export * from './impressao/comanda';
 export * from './impressao/folha';
 export * from './impressao/recibo';
 export * from './integracoes/impressora';

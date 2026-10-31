@@ -1,0 +1,56 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`comanda impressa (F2, 2c; 80 mm) > a 3557: código grande, itens, total, forma, área, referência, telefone e QR do Maps 1`] = `
+"^^^^3557
+16/10 21:48 | "ENTREGA"
+-
+{width: *,10}
+"G ½ Filé Mignon ½ Calabresa" | 93,00
+"Refrigerante 2L" | 15,00
+Taxa Aragarças | 5,00
+^"TOTAL" | ^"113,00"
+{width: auto}
+-
+|"CARTÃO"
+-
+|^"Aragarças"
+|Rua 7, 120
+|Ref.: hospital
+|Maria
+|Tel.: (64) 99999-3557
+
+{code:https\\://maps.app.goo.gl/abc123; option:qrcode,6,m}
+=
+"
+`;
+
+exports[`comanda impressa (F2, 2c; 80 mm) > promoção (asterisco), ALTERADO, dinheiro com troco e Pix antecipado a conferir 1`] = `
+"^^\`ALTERADO\`
+^^^^3557 *
+16/10 21:48 | "ENTREGA"
+-
+{width: *,10}
+2 "G Portuguesa" * | 178,00
+~~borda Cheddar |
+~~+ Bacon |
+Taxa Aragarças | 5,00
+^"TOTAL" | ^"183,00"
+{width: auto}
+-
+{width: *,10}
+Pix antecipado | 50,00
+dinheiro | 133,00
+{width: auto}
+|^"TROCO PARA 150,00"
+|^\`PIX: CONFERIR\`
+-
+|^"Aragarças"
+|Rua 7, 120
+|Ref.: hospital
+|Maria
+|Tel.: (64) 99999-3557
+
+^^\`SEM LOCALIZAÇÃO\`
+=
+"
+`;
