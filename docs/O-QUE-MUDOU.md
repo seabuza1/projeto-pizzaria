@@ -40,3 +40,4 @@ Escrito para o Luan e a gerente. Uma linha por mudança que aparece na tela, com
 | 31/10/2026 | Agente de impressão no computador do balcão: imprime na térmica do Wi-Fi e, sem internet, imprime direto o que o balcão manda. | Felipe: instalar o agente e a impressora (etapa de deploy). |
 | 31/10/2026 | Se o agente de impressão para de responder por 2 minutos, aparece "Impressora sem resposta" no topo, com "Imprimir pelo navegador" para o que está parado na fila. | Quem estiver no balcão: imprimir pelo navegador e conferir a impressora (ligada, papel, Wi-Fi). |
 | 31/10/2026 | "Relatar problema" no pé de cada tela: manda ao Felipe a versão, a tela e as últimas operações do aparelho (sem dados de cliente). | Quem estiver usando: tocar logo depois que algo estranho acontecer. |
+| 31/10/2026 | Plano de contingência de cinco linhas em `docs/CONTINGENCIA.md`, para imprimir e colar no balcão. | Felipe: imprimir, escrever o telefone e colar ao lado do computador. |
