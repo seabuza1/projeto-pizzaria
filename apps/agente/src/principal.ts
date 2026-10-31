@@ -26,8 +26,12 @@ const impressora = new ImpressoraDeRede(config.impressora, config.impressoraHost
 const processador = new Processador(new FilaSupabase(db, config.impressora), impressora, registro);
 
 // A impressão local funciona mesmo sem internet desde o primeiro minuto.
-servidorLocal(processador, config.impressora).listen(config.portaLocal, '127.0.0.1', () =>
-  registro.info(`impressão local em http://localhost:${config.portaLocal}`),
+servidorLocal(processador, config.impressora, config.origens).listen(config.portaLocal, '127.0.0.1', () =>
+  registro.info(
+    config.origens.length > 0
+      ? `impressão local em http://localhost:${config.portaLocal}`
+      : 'impressão local desligada (MEL_AGENTE_ORIGENS vazia)',
+  ),
 );
 
 let logado = false;

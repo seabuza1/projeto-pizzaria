@@ -11,6 +11,8 @@ export interface Config {
   impressoraPorta: number;
   /** Porta da impressão sem internet, só em localhost (ARQUITETURA, Impressão). */
   portaLocal: number;
+  /** Origens do app que podem mandar imprimir pela rede local. Vazia: impressão local desligada. */
+  origens: string[];
 }
 
 export function lerConfig(env: Record<string, string | undefined>): Config {
@@ -36,5 +38,9 @@ export function lerConfig(env: Record<string, string | undefined>): Config {
     impressoraHost: env.MEL_IMPRESSORA_HOST ?? '',
     impressoraPorta: porta(env.MEL_IMPRESSORA_PORTA, 9100),
     portaLocal: porta(env.MEL_AGENTE_PORTA_LOCAL, 9180),
+    origens: (env.MEL_AGENTE_ORIGENS ?? '')
+      .split(',')
+      .map((o) => o.trim())
+      .filter(Boolean),
   };
 }

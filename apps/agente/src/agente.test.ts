@@ -169,59 +169,86 @@ describe('processador da fila', () => {
 });
 
 describe('impressão sem internet (http://localhost)', () => {
+  const ORIGEM = 'https://mel.exemplo.app';
+  const json = { 'Content-Type': 'application/json', Origin: ORIGEM };
+
   async function servidor() {
     const t = await termica();
     const fila = new FilaFalsa();
-    const s = servidorLocal(
-      new Processador(fila, new ImpressoraDeRede('balcao', '127.0.0.1', t.porta), calado),
-      'balcao',
-    );
+    const processador = new Processador(fila, new ImpressoraDeRede('balcao', '127.0.0.1', t.porta), calado);
+    const s = servidorLocal(processador, 'balcao', [ORIGEM]);
     await new Promise<void>((ok) => s.listen(0, '127.0.0.1', ok));
     abertos.push(s);
     const url = `http://127.0.0.1:${(s.address() as AddressInfo).port}`;
     return { t, fila, url };
   }
 
-  it('o balcão manda a comanda; repetida não imprime de novo', async () => {
+  it('o app manda a comanda; repetida não imprime de novo', async () => {
     const { t, fila, url } = await servidor();
     const corpo = JSON.stringify({ id: randomUUID(), tipo: 'comanda', conteudo: comanda });
-    const r1 = await fetch(`${url}/imprimir`, {
-      method: 'POST',
-      body: corpo,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    const r1 = await fetch(`${url}/imprimir`, { method: 'POST', body: corpo, headers: json });
     expect(await r1.json()).toEqual({ ok: true });
-    const r2 = await fetch(`${url}/imprimir`, {
-      method: 'POST',
-      body: corpo,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    const r2 = await fetch(`${url}/imprimir`, { method: 'POST', body: corpo, headers: json });
     expect(await r2.json()).toEqual({ ok: true, repetida: true });
     await expect.poll(() => t.recebidos.length).toBe(1);
     await expect.poll(() => fila.locais.length).toBe(1);
   });
 
-  it('libera o pedido de rede local do Chrome e recusa dados inválidos', async () => {
-    const { url } = await servidor();
-    const pre = await fetch(`${url}/imprimir`, { method: 'OPTIONS' });
-    expect(pre.headers.get('access-control-allow-private-network')).toBe('true');
-    const ruim = await fetch(`${url}/imprimir`, { method: 'POST', body: JSON.stringify({ id: 'x', tipo: 'outro' }) });
-    expect(ruim.status).toBe(400);
-    expect(await (await fetch(`${url}/saude`)).json()).toEqual({ ok: true, impressora: 'balcao' });
+  it('só a origem do app: outro site aberto no balcão não manda imprimir', async () => {
+    const { t, url } = await servidor();
+    const corpo = JSON.stringify({ id: randomUUID(), tipo: 'comanda', conteudo: comanda });
+    const outro = await fetch(`${url}/imprimir`, {
+      method: 'POST',
+      body: corpo,
+      headers: { 'Content-Type': 'application/json', Origin: 'https://site-qualquer.example' },
+    });
+    expect(outro.status).toBe(403);
+    expect(outro.headers.get('access-control-allow-origin')).toBeNull();
+    const semOrigem = await fetch(`${url}/imprimir`, { method: 'POST', body: corpo });
+    expect(semOrigem.status).toBe(403);
+    const pre = await fetch(`${url}/imprimir`, {
+      method: 'OPTIONS',
+      headers: { Origin: 'https://site-qualquer.example' },
+    });
+    expect(pre.headers.get('access-control-allow-private-network')).toBeNull();
+    expect(t.recebidos).toHaveLength(0);
   });
+
+  it('libera a rede local do Chrome para o app; exige JSON; recusa dado inválido e corpo grande demais', async () => {
+    const { url } = await servidor();
+    const pre = await fetch(`${url}/imprimir`, { method: 'OPTIONS', headers: { Origin: ORIGEM } });
+    expect(pre.headers.get('access-control-allow-private-network')).toBe('true');
+    expect(pre.headers.get('access-control-allow-origin')).toBe(ORIGEM);
+    const texto = await fetch(`${url}/imprimir`, { method: 'POST', body: '{}', headers: { Origin: ORIGEM } });
+    expect(texto.status).toBe(415);
+    const ruim = await fetch(`${url}/imprimir`, { method: 'POST', body: JSON.stringify({ id: 'x' }), headers: json });
+    expect(ruim.status).toBe(400);
+    const grande = await fetch(`${url}/imprimir`, { method: 'POST', body: 'x'.repeat(70 * 1024), headers: json });
+    expect(grande.status).toBe(413);
+    expect(await (await fetch(`${url}/saude`, { headers: { Origin: ORIGEM } })).json()).toEqual({
+      ok: true,
+      impressora: 'balcao',
+    });
+  });
+});
+
+const base = () => ({
+  MEL_SUPABASE_URL: 'http://127.0.0.1:54321',
+  MEL_SUPABASE_ANON_KEY: 'chave-publica',
+  MEL_AGENTE_EMAIL: 'agente@mel.test',
+  MEL_AGENTE_SENHA: 'x',
+  MEL_IMPRESSORA_HOST: '192.168.0.50',
 });
 
 describe('configuração', () => {
   it('pede o que falta e usa as portas padrão', () => {
     expect(() => lerConfig({})).toThrow(/MEL_SUPABASE_URL/);
-    const c = lerConfig({
-      MEL_SUPABASE_URL: 'http://127.0.0.1:54321',
-      MEL_SUPABASE_ANON_KEY: 'chave-publica',
-      MEL_AGENTE_EMAIL: 'agente@mel.test',
-      MEL_AGENTE_SENHA: 'x',
-      MEL_IMPRESSORA_HOST: '192.168.0.50',
-    });
-    expect(c).toMatchObject({ impressora: 'balcao', impressoraPorta: 9100, portaLocal: 9180 });
+    const c = lerConfig(base());
+    expect(c).toMatchObject({ impressora: 'balcao', impressoraPorta: 9100, portaLocal: 9180, origens: [] });
+    expect(lerConfig({ ...base(), MEL_AGENTE_ORIGENS: 'https://a.app, http://localhost:5173' }).origens).toEqual([
+      'https://a.app',
+      'http://localhost:5173',
+    ]);
     expect(() => lerConfig({ ...c, MEL_IMPRESSORA_PORTA: '99999' } as never)).toThrow();
   });
 
