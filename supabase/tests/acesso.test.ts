@@ -1,4 +1,5 @@
-// Testes de acesso: uma conta de cada papel do MVP (admin, gerente, expedicao, motoboy, agente).
+// Testes de acesso: uma conta de cada papel em uso (admin, gerente, expedicao, agente).
+// O motoboy não tem login: é um cadastro (decisão 0007).
 
 import { entradaDoCaixa } from '@mel/db';
 import { calcularAcerto } from '@mel/dominio';
@@ -13,6 +14,7 @@ import {
   limpar,
   novoId,
   pg,
+  SENHA,
   type Sessao,
   sql,
   versaoDoCaixa,
@@ -39,12 +41,16 @@ const TABELAS = [
 let felipe: Sessao;
 let luan: Sessao;
 let dona: Sessao;
-let joao: Sessao;
-let pedro: Sessao;
 let agente: Sessao;
 let area: Record<string, string>;
 let noiteId: string;
 let caixas: Record<string, string>;
+
+/** Uma saída qualquer da noite, para operações que só precisam de uma. */
+async function umaSaida(): Promise<string> {
+  const [s] = await sql<{ id: string }[]>`select id from public.saidas limit 1`;
+  return s?.id ?? '';
+}
 
 async function conferirAcerto(caixaId: string, quem: Sessao = luan) {
   const [caixa] =
@@ -78,12 +84,10 @@ async function conferirAcerto(caixaId: string, quem: Sessao = luan) {
 
 beforeAll(async () => {
   await limpar();
-  [felipe, luan, dona, joao, pedro, agente] = await Promise.all([
+  [felipe, luan, dona, agente] = await Promise.all([
     entrar('felipe'),
     entrar('luan'),
     entrar('dona'),
-    entrar('joao'),
-    entrar('pedro'),
     entrar('agente'),
   ]);
   area = await areas();
@@ -111,7 +115,7 @@ describe('sem login (anon)', () => {
 
 describe('escrita direta nas tabelas', () => {
   it('é negada para todos os papéis; só aplicar_operacao escreve', async () => {
-    for (const s of [felipe, luan, joao, agente]) {
+    for (const s of [felipe, luan, dona, agente]) {
       const ins = await s.db.from('noites').insert({ data: '2020-01-01' });
       expect(ins.error?.code, s.conta).toBe('42501');
       const upd = await s.db
@@ -125,38 +129,46 @@ describe('escrita direta nas tabelas', () => {
   });
 });
 
-describe('motoboy', () => {
-  it('lança no próprio caixa e não vê o caixa nem as saídas de outro (ENT8)', async () => {
-    aplicada((await lancar(joao, caixas.joao ?? '', '3557', 113, area.Barra ?? '', [pg('dinheiro', 113)])).r);
-    aplicada((await lancar(pedro, caixas.pedro ?? '', '1111', 40, area.Aragarças ?? '', [pg('cartao', 40)])).r);
-
-    const cx = await joao.db.from('caixas').select('id');
-    expect(cx.data?.map((c) => c.id)).toEqual([caixas.joao]);
-    const sd = await joao.db.from('saidas').select('caixa_id');
-    expect(sd.data?.map((s) => s.caixa_id)).toEqual([caixas.joao]);
-    const pd = await joao.db.from('pedidos').select('codigo');
-    expect(pd.data?.map((p) => p.codigo)).toEqual(['3557']);
-    const pgs = await joao.db.from('pagamentos').select('valor');
-    expect(pgs.data?.map((p) => p.valor)).toEqual([11300]);
+describe('motoboy sem login (decisão 0007)', () => {
+  it('o motoboy não entra no sistema', async () => {
+    const { error } = await clienteAnonimo().auth.signInWithPassword({ email: 'joao@mel.test', password: SENHA });
+    expect(error).not.toBeNull();
   });
 
-  it('não lança no caixa de outro motoboy', async () => {
-    const { r } = await lancar(joao, caixas.pedro ?? '', '2222', 50, area.Barra ?? '', [pg('dinheiro', 50)]);
-    expect(r).toMatchObject({ status: 'recusada', motivo: '2222: esse caixa é de outro motoboy.' });
+  it('a expedição lança no caixa de cada motoboy', async () => {
+    aplicada((await lancar(luan, caixas.joao ?? '', '3557', 113, area.Barra ?? '', [pg('dinheiro', 113)])).r);
+    aplicada((await lancar(luan, caixas.pedro ?? '', '1111', 40, area.Aragarças ?? '', [pg('cartao', 40)])).r);
+    const sd = await luan.db.from('saidas').select('caixa_id');
+    expect(sd.data?.map((s) => s.caixa_id).sort()).toEqual([caixas.joao, caixas.pedro].sort());
   });
 
-  it('não abre noite, não abre caixa e não confirma acerto', async () => {
-    expect((await joao.op('abrir_noite', { noite_id: novoId() })).motivo).toBe('Sem permissão para isso.');
-    expect((await joao.op('informar_contado', { caixa_id: caixas.joao ?? '', dinheiro_contado: 100 })).motivo).toBe(
-      'Sem permissão para isso.',
+  it('cadastro de motoboys: gerente e admin cadastram; a expedição só lê', async () => {
+    const novo = novoId();
+    aplicada(await dona.op('salvar_motoboy', { motoboy_id: novo, nome: 'Zé', ativo: true }));
+    expect((await luan.op('salvar_motoboy', { motoboy_id: novoId(), nome: 'X', ativo: true })).codigo).toBe(
+      'sem_permissao',
     );
-    expect((await joao.op('marcar_pix', { pagamento_id: novoId(), confirmado: true })).motivo).toBe(
-      'Sem permissão para isso.',
-    );
+    const lidos = await luan.db.from('motoboys').select('nome').eq('id', novo);
+    expect(lidos.data).toEqual([{ nome: 'Zé' }]);
+    expect((await agente.db.from('motoboys').select('id')).data).toEqual([]);
+    // Desativar em vez de apagar: o caixa antigo continua apontando para ele.
+    aplicada(await felipe.op('salvar_motoboy', { motoboy_id: novo, nome: 'Zé', ativo: false }));
+    const r = await luan.op('abrir_caixa', { caixa_id: novoId(), noite_id: noiteId, motoboy_id: novo });
+    expect(r).toMatchObject({ status: 'recusada', codigo: 'motoboy_invalido' });
+  });
+
+  it('caixa só para motoboy do cadastro, não para uma conta do sistema', async () => {
+    const r = await luan.op('abrir_caixa', { caixa_id: novoId(), noite_id: noiteId, motoboy_id: luan.id });
+    expect(r).toMatchObject({ status: 'recusada', codigo: 'motoboy_invalido' });
+  });
+
+  it('ninguém recebe o papel motoboy', async () => {
+    const r = await felipe.opAntiga('salvar_perfil', { perfil_id: luan.id, papeis: ['expedicao', 'motoboy'] });
+    expect(r).toMatchObject({ status: 'recusada', codigo: 'papel_sem_uso' });
   });
 
   it('pagamento que não soma o total é recusado (PAG2)', async () => {
-    const { r } = await lancar(joao, caixas.joao ?? '', '1234', 50, area.Pontal ?? '', [
+    const { r } = await lancar(luan, caixas.joao ?? '', '1234', 50, area.Pontal ?? '', [
       pg('pix_antecipado', 20),
       pg('dinheiro', 25),
     ]);
@@ -164,7 +176,7 @@ describe('motoboy', () => {
   });
 
   it('troco por Pix sem parte em dinheiro é recusado (PAG4)', async () => {
-    const { r } = await lancar(joao, caixas.joao ?? '', '2672', 90, area.Pontal ?? '', [pg('cartao', 90, 3)]);
+    const { r } = await lancar(luan, caixas.joao ?? '', '2672', 90, area.Pontal ?? '', [pg('cartao', 90, 3)]);
     expect(r).toMatchObject({ status: 'recusada', motivo: '2672: troco por Pix só com parte em dinheiro.' });
   });
 });
@@ -181,8 +193,8 @@ describe('fila idempotente', () => {
       area_id: area.Barra ?? '',
       pagamentos: [pg('pix_maquininha', 72)],
     };
-    const r1 = await joao.op('lancar_saida', dados, { id: opId });
-    const r2 = await joao.op('lancar_saida', dados, { id: opId });
+    const r1 = await luan.op('lancar_saida', dados, { id: opId });
+    const r2 = await luan.op('lancar_saida', dados, { id: opId });
     expect(r1.status).toBe('aplicada');
     expect(r2).toMatchObject({ status: 'aplicada', repetida: true });
     const [{ n } = { n: -1 }] = await sql<
@@ -193,9 +205,9 @@ describe('fila idempotente', () => {
 
   it('outra pessoa não reaproveita o id de uma operação', async () => {
     const opId = novoId();
-    aplicada(await joao.opAntiga('avisar_retorno', { caixa_id: caixas.joao ?? '', minutos: 5 }, { id: opId }));
+    aplicada(await luan.op('conferir_papel', { saida_id: await umaSaida(), conferido: true }, { id: opId }));
     await expect(
-      pedro.opAntiga('avisar_retorno', { caixa_id: caixas.pedro ?? '', minutos: 5 }, { id: opId }),
+      dona.op('conferir_papel', { saida_id: await umaSaida(), conferido: false }, { id: opId }),
     ).rejects.toThrow();
   });
 });
@@ -221,15 +233,15 @@ describe('acerto (ACE9)', () => {
     expect(r).toMatchObject({ status: 'recusada', motivo: 'A conta mudou desde que você abriu. Confira de novo.' });
   });
 
-  it('depois de confirmado, o motoboy não edita o caixa nem as saídas', async () => {
+  it('depois de confirmado, ninguém mexe no caixa nem nas saídas', async () => {
     aplicada(await conferirAcerto(caixas.joao ?? ''));
     const [saida] = await sql`select id from public.saidas where caixa_id = ${caixas.joao ?? ''} limit 1`;
-    const r = await joao.op('mudar_estado_saida', { saida_id: saida?.id, estado: 'entregue' });
+    const r = await luan.op('mudar_estado_saida', { saida_id: saida?.id, estado: 'voltou' });
     expect(r.status).toBe('recusada');
     expect(r.motivo).toMatch(/o acerto já foi confirmado por Luan\.$/);
-    const novo = await lancar(joao, caixas.joao ?? '', '4444', 30, area.Barra ?? '', [pg('dinheiro', 30)]);
+    const novo = await lancar(luan, caixas.joao ?? '', '4444', 30, area.Barra ?? '', [pg('dinheiro', 30)]);
     expect(novo.r.motivo).toBe('4444: o acerto já foi confirmado por Luan.');
-    // Nem a expedição edita: reabrir é do admin.
+    // Reabrir é do admin.
     const ed = await luan.op('editar_caixa', { caixa_id: caixas.joao ?? '', diaria: 4000 });
     expect(ed.motivo).toBe('O acerto já foi confirmado por Luan.');
   });
@@ -249,24 +261,23 @@ describe('acerto (ACE9)', () => {
     });
   });
 
-  it('a expedição não reabre; o admin reabre e o motoboy volta a editar', async () => {
+  it('a expedição não reabre; o admin reabre e o caixa volta a aceitar lançamento', async () => {
     expect((await luan.op('reabrir_acerto', { caixa_id: caixas.joao ?? '', motivo: 'Teste' })).motivo).toBe(
       'Sem permissão para isso.',
     );
     aplicada(await felipe.op('reabrir_acerto', { caixa_id: caixas.joao ?? '', motivo: 'Faltou lançar um pedido' }));
-    aplicada((await lancar(joao, caixas.joao ?? '', '4444', 30, area.Barra ?? '', [pg('dinheiro', 30)])).r);
+    aplicada((await lancar(luan, caixas.joao ?? '', '4444', 30, area.Barra ?? '', [pg('dinheiro', 30)])).r);
   });
 });
 
 describe('gerente e registro de mudanças (OPE2)', () => {
-  it('a gerente lê os eventos, com autor; expedição e motoboy não', async () => {
+  it('a gerente lê os eventos, com autor; a expedição não', async () => {
     const ev = await dona.db.from('eventos').select('tabela, autor, acao').eq('tabela', 'acertos');
     expect(ev.error).toBeNull();
     expect(ev.data?.length).toBeGreaterThanOrEqual(2);
     expect(ev.data?.find((e) => e.acao === 'insert')?.autor).toBe(luan.id);
     expect(ev.data?.find((e) => e.acao === 'update')?.autor).toBe(felipe.id);
     expect((await luan.db.from('eventos').select('id')).data).toEqual([]);
-    expect((await joao.db.from('eventos').select('id')).data).toEqual([]);
   });
 
   it('cada mudança de pagamento e saída fica registrada com a operação', async () => {
@@ -309,20 +320,15 @@ describe('agente de impressão', () => {
     expect(r.motivo).toBe('Sem permissão para isso.');
   });
 
-  it('o motoboy não pede impressão do caixa de outro', async () => {
-    const r = await joao.op('pedir_impressao', {
-      impressao_id: novoId(),
-      tipo: 'recibo_acerto',
-      conteudo: 'x',
-      caixa_id: caixas.pedro ?? '',
-    });
+  it('o agente não pede impressão; quem pede é a equipe do balcão', async () => {
+    const r = await agente.op('pedir_impressao', { impressao_id: novoId(), tipo: 'folha_noite', conteudo: 'x' });
     expect(r.motivo).toBe('Sem permissão para isso.');
   });
 });
 
 describe('admin', () => {
   it('não tira o próprio acesso de admin', async () => {
-    const r = await felipe.op('salvar_perfil', { perfil_id: felipe.id, papeis: ['motoboy'] });
+    const r = await felipe.op('salvar_perfil', { perfil_id: felipe.id, papeis: ['expedicao'] });
     expect(r.motivo).toBe('Você não pode tirar o próprio acesso de admin.');
   });
 

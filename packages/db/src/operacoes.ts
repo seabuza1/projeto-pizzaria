@@ -102,11 +102,12 @@ const dadosPorTipo = {
       .max(30)
       .optional(),
   }),
+  salvar_motoboy: z.object({ motoboy_id: id, nome: z.string().trim().min(1).max(60), ativo: z.boolean() }),
   salvar_perfil: z.object({
     perfil_id: id,
     nome: z.string().trim().min(1).max(60).optional(),
     papeis: z
-      .array(z.enum(['admin', 'gerente', 'expedicao', 'atendente', 'motoboy', 'cozinha', 'garcom', 'agente']))
+      .array(z.enum(['admin', 'gerente', 'expedicao', 'atendente', 'cozinha', 'garcom', 'agente']))
       .min(1)
       .optional(),
     ativo: z.boolean().optional(),

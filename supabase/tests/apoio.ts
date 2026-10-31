@@ -58,11 +58,17 @@ export const CONTAS = {
   felipe: { id: 'a0000000-0000-4000-8000-000000000001', email: 'felipe@mel.test' },
   luan: { id: 'a0000000-0000-4000-8000-000000000002', email: 'luan@mel.test' },
   dona: { id: 'a0000000-0000-4000-8000-000000000003', email: 'dona@mel.test' },
-  joao: { id: 'a0000000-0000-4000-8000-000000000004', email: 'joao@mel.test' },
-  pedro: { id: 'a0000000-0000-4000-8000-000000000005', email: 'pedro@mel.test' },
   agente: { id: 'a0000000-0000-4000-8000-000000000006', email: 'agente@mel.test' },
 } as const;
 export type Conta = keyof typeof CONTAS;
+
+/** Cadastro de motoboys do seed.sql: sem login (decisão 0007). */
+export const MOTOBOYS = {
+  joao: 'a0000000-0000-4000-8000-000000000004',
+  pedro: 'a0000000-0000-4000-8000-000000000005',
+  felipe: 'a0000000-0000-4000-8000-000000000007',
+} as const;
+export type Motoboy = keyof typeof MOTOBOYS;
 
 export const novoId = () => randomUUID();
 
@@ -151,13 +157,13 @@ export async function areas(): Promise<Record<string, string>> {
 }
 
 /** Abre a noite (Luan) e os caixas dos motoboys pedidos, na ordem de chegada. */
-export async function abrirNoite(luan: Sessao, motoboys: Conta[]) {
+export async function abrirNoite(luan: Sessao, motoboys: Motoboy[]) {
   const noiteId = novoId();
   aplicada(await luan.op('abrir_noite', { noite_id: noiteId }));
   const caixas: Record<string, string> = {};
   for (const m of motoboys) {
     const caixaId = novoId();
-    aplicada(await luan.op('abrir_caixa', { caixa_id: caixaId, noite_id: noiteId, motoboy_id: CONTAS[m].id }));
+    aplicada(await luan.op('abrir_caixa', { caixa_id: caixaId, noite_id: noiteId, motoboy_id: MOTOBOYS[m] }));
     caixas[m] = caixaId;
   }
   return { noiteId, caixas };

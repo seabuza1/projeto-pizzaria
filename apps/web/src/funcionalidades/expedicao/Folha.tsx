@@ -113,18 +113,32 @@ function ColunaPix({ dados }: { dados: DadosNoite }) {
   );
 }
 
-export function Folha({ noite, dados, perfis }: { noite: Noite; dados: DadosNoite; perfis: Perfil[] }) {
+export function Folha({
+  noite,
+  dados,
+  nomeMotoboy,
+}: {
+  noite: Noite;
+  dados: DadosNoite;
+  nomeMotoboy: (id: string) => string;
+}) {
   const [aberta, setAberta] = useState<Saida | null>(null);
-  const nome = (id: string) => perfis.find((p) => p.id === id)?.nome ?? '?';
   const pedido = aberta && dados.pedidos.find((p) => p.id === aberta.pedido_id);
   const atual = aberta && dados.saidas.find((s) => s.id === aberta.id && !s.cancelada_em);
   const abertos = dados.caixas
     .filter((c) => !dados.acertos.some((a) => a.caixa_id === c.id))
-    .map((c) => ({ id: c.id, nome: nome(c.motoboy_id) }));
+    .map((c) => ({ id: c.id, nome: nomeMotoboy(c.motoboy_id) }));
   return (
     <div className="flex gap-2 overflow-x-auto p-3 sm:flex-wrap sm:overflow-visible">
       {dados.caixas.map((c) => (
-        <Coluna key={c.id} caixa={c} dados={dados} nome={nome(c.motoboy_id)} noite={noite} aoTocarCodigo={setAberta} />
+        <Coluna
+          key={c.id}
+          caixa={c}
+          dados={dados}
+          nome={nomeMotoboy(c.motoboy_id)}
+          noite={noite}
+          aoTocarCodigo={setAberta}
+        />
       ))}
       <ColunaPix dados={dados} />
       {pedido && atual && (

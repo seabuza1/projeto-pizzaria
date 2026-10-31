@@ -57,7 +57,17 @@ function CampoValor({
   );
 }
 
-export function AcertoLuan({ dados, perfis, perfil }: { dados: DadosNoite; perfis: Perfil[]; perfil: Perfil }) {
+export function AcertoLuan({
+  dados,
+  perfis,
+  perfil,
+  nomeMotoboy,
+}: {
+  dados: DadosNoite;
+  perfis: Perfil[];
+  perfil: Perfil;
+  nomeMotoboy: (id: string) => string;
+}) {
   const { caixaId } = useParams();
   const areas = useAreas(true);
   const cfg = useConfig();
@@ -68,6 +78,7 @@ export function AcertoLuan({ dados, perfis, perfil }: { dados: DadosNoite; perfi
 
   const conta = contaDoCaixa(caixa, dados);
   const acerto = dados.acertos.find((a) => a.caixa_id === caixa.id);
+  // Quem confirmou é da equipe (perfis); o motoboy é do cadastro.
   const nome = (id: string | null) => perfis.find((p) => p.id === id)?.nome ?? '?';
   const nomeArea = (id: string) => areas.find((a) => a.id === id)?.nome ?? '?';
   const pedidos = new Map(dados.pedidos.map((p) => [p.id, p]));
@@ -79,7 +90,7 @@ export function AcertoLuan({ dados, perfis, perfil }: { dados: DadosNoite; perfi
 
   async function confirmar() {
     await acoes.confirmarAcerto(caixa?.id ?? '', conta);
-    mostrarAviso(`Acerto de ${nome(caixa?.motoboy_id ?? null)} confirmado`);
+    mostrarAviso(`Acerto de ${nomeMotoboy(caixa?.motoboy_id ?? '')} confirmado`);
   }
 
   return (
@@ -89,7 +100,7 @@ export function AcertoLuan({ dados, perfis, perfil }: { dados: DadosNoite; perfi
           ← Folha
         </Link>
         <span className="text-lg font-semibold">
-          <span className="numero text-apagado">{caixa.ordem_chegada}</span> {nome(caixa.motoboy_id)}
+          <span className="numero text-apagado">{caixa.ordem_chegada}</span> {nomeMotoboy(caixa.motoboy_id)}
         </span>
       </div>
 
@@ -158,7 +169,7 @@ export function AcertoLuan({ dados, perfis, perfil }: { dados: DadosNoite; perfi
             vigentes={pagamentosVigentes(s, dados.pagamentos)}
             caixas={dados.caixas
               .filter((c) => !dados.acertos.some((a) => a.caixa_id === c.id))
-              .map((c) => ({ id: c.id, nome: nome(c.motoboy_id) }))}
+              .map((c) => ({ id: c.id, nome: nomeMotoboy(c.motoboy_id) }))}
             aoFechar={() => setAberta(null)}
           />
         ) : null;

@@ -25,7 +25,19 @@ import {
 import { type Bloqueio, Motor } from './motor';
 import { supabase } from './supabase';
 
-export type { Acerto, Area, Caixa, Config, Impressao, Noite, Pagamento, Pedido, Perfil, Saida } from './banco-local';
+export type {
+  Acerto,
+  Area,
+  Caixa,
+  Config,
+  Impressao,
+  Motoboy,
+  Noite,
+  Pagamento,
+  Pedido,
+  Perfil,
+  Saida,
+} from './banco-local';
 
 const banco = new BancoLocal();
 
@@ -230,6 +242,9 @@ export const usePendentes = () => useLiveQuery(() => banco.fila.count(), [], 0);
 export const useUltimaSinc = () => useLiveQuery(() => banco.lerMeta<string>('ultima_sinc'), []);
 export const useConfig = () => useLiveQuery(() => banco.config.toCollection().first(), []);
 export const usePerfis = () => useLiveQuery(() => banco.perfis.toArray(), [], []);
+/** Cadastro de motoboys (decisão 0007), em ordem alfabética. */
+export const useMotoboys = () =>
+  useLiveQuery(async () => (await banco.motoboys.toArray()).sort((a, b) => a.nome.localeCompare(b.nome)), [], []);
 
 export function useAreas(todas = false) {
   return useLiveQuery(
@@ -435,6 +450,8 @@ export const acoes = {
     }),
   salvarConfig: (c: DadosDe<'salvar_config'>) => executar('salvar_config', c),
   salvarPerfil: (p: DadosDe<'salvar_perfil'>) => executar('salvar_perfil', p),
+  salvarMotoboy: (m: { id?: string; nome: string; ativo: boolean }) =>
+    executar('salvar_motoboy', { motoboy_id: m.id ?? novoId(), nome: m.nome, ativo: m.ativo }),
 };
 
 // Consultas que só existem com internet ---------------------------------------

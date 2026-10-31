@@ -10,6 +10,7 @@ export type Pagamento = Tables<'pagamentos'>;
 export type Acerto = Tables<'acertos'>;
 export type Area = Tables<'areas'>;
 export type Perfil = Tables<'perfis'>;
+export type Motoboy = Tables<'motoboys'>;
 export type Config = Tables<'config'>;
 export type Impressao = Tables<'impressoes'>;
 
@@ -42,6 +43,7 @@ export class BancoLocal extends Dexie {
   acertos!: EntityTable<Acerto, 'id'>;
   areas!: EntityTable<Area, 'id'>;
   perfis!: EntityTable<Perfil, 'id'>;
+  motoboys!: EntityTable<Motoboy, 'id'>;
   config!: EntityTable<Config, 'id'>;
   impressoes!: EntityTable<Impressao, 'id'>;
   fila!: EntityTable<OperacaoNaFila, 'id'>;
@@ -65,6 +67,8 @@ export class BancoLocal extends Dexie {
       recusas: 'id, em',
       meta: 'chave',
     });
+    // Decisão 0007: o motoboy virou cadastro.
+    this.version(2).stores({ motoboys: 'id' });
   }
 
   /** Tabelas com dados da noite (e as de cadastro), na ordem em que a sincronização grava. */
@@ -78,6 +82,7 @@ export class BancoLocal extends Dexie {
       this.acertos,
       this.areas,
       this.perfis,
+      this.motoboys,
       this.config,
       this.impressoes,
     ];

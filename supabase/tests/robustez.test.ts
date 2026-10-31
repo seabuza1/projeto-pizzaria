@@ -17,14 +17,14 @@ import {
 } from './apoio';
 
 let luan: Sessao;
-let joao: Sessao;
+let dona: Sessao;
 let felipe: Sessao;
 let area: Record<string, string>;
 let caixaId: string;
 
 beforeEach(async () => {
   await limpar();
-  [luan, joao, felipe] = await Promise.all([entrar('luan'), entrar('joao'), entrar('felipe')]);
+  [luan, dona, felipe] = await Promise.all([entrar('luan'), entrar('dona'), entrar('felipe')]);
   area = await areas();
   caixaId = (await abrirNoite(luan, ['joao'])).caixas.joao ?? '';
 });
@@ -35,7 +35,7 @@ describe('horário do servidor', () => {
     const opId = novoId();
     const saidaId = novoId();
     aplicada(
-      await joao.op(
+      await luan.op(
         'lancar_saida',
         {
           caixa_id: caixaId,
@@ -62,19 +62,19 @@ describe('horário do servidor', () => {
 
 describe('versao_op', () => {
   it('aceita a versão atual e a anterior', async () => {
-    aplicada(await joao.opAntiga('avisar_retorno', { caixa_id: caixaId, minutos: 5 }, { versaoOp: 0 }));
+    aplicada(await luan.opAntiga('avisar_retorno', { caixa_id: caixaId, minutos: 5 }, { versaoOp: 0 }));
   });
 
   it('versão antiga demais ou sem versão: não recusa nem grava; o app guarda a fila e pede para atualizar', async () => {
     const opId = novoId();
     await expect(
-      joao.opAntiga('avisar_retorno', { caixa_id: caixaId, minutos: 5 }, { id: opId, versaoOp: -1 }),
+      luan.opAntiga('avisar_retorno', { caixa_id: caixaId, minutos: 5 }, { id: opId, versaoOp: -1 }),
     ).rejects.toMatchObject({
       code: 'MEL02',
       message: 'Atualize o app para continuar.',
     });
     await expect(
-      joao.opAntiga('avisar_retorno', { caixa_id: caixaId, minutos: 5 }, { versaoOp: null }),
+      luan.opAntiga('avisar_retorno', { caixa_id: caixaId, minutos: 5 }, { versaoOp: null }),
     ).rejects.toMatchObject({
       code: 'MEL02',
     });
@@ -84,17 +84,17 @@ describe('versao_op', () => {
   });
 
   it('a configuração guarda a versão mínima do app', async () => {
-    const { data } = await joao.db.from('config').select('versao_minima_app').single();
+    const { data } = await luan.db.from('config').select('versao_minima_app').single();
     expect(data?.versao_minima_app).toBe(1);
   });
 });
 
 describe('versao_esperada', () => {
-  it('o Luan não confirma um caixa que o motoboy mudou depois que ele abriu a conta', async () => {
-    aplicada((await lancar(joao, caixaId, '3557', 113, area.Barra ?? '', [pg('dinheiro', 113)])).r);
+  it('o Luan não confirma um caixa que outra pessoa mudou depois que ele abriu a conta', async () => {
+    aplicada((await lancar(luan, caixaId, '3557', 113, area.Barra ?? '', [pg('dinheiro', 113)])).r);
     aplicada(await luan.op('informar_contado', { caixa_id: caixaId, dinheiro_contado: 19300 }));
     const versaoQueOLuanViu = await versaoDoCaixa(caixaId);
-    aplicada((await lancar(joao, caixaId, '2672', 90, area.Pontal ?? '', [pg('cartao', 90)])).r);
+    aplicada((await lancar(dona, caixaId, '2672', 90, area.Pontal ?? '', [pg('cartao', 90)])).r);
     const r = await luan.op('confirmar_acerto', {
       caixa_id: caixaId,
       acerto_id: novoId(),
@@ -113,12 +113,12 @@ describe('versao_esperada', () => {
     expect(r).toMatchObject({
       status: 'recusada',
       codigo: 'versao_mudou',
-      motivo: 'João mudou este caixa; confira e tente de novo.',
+      motivo: 'Dona mudou este caixa; confira e tente de novo.',
     });
   });
 
   it('ninguém sobrescreve a troca de forma de outro sem ver', async () => {
-    const { r, saidaId, pedidoId } = await lancar(joao, caixaId, '3557', 113, area.Barra ?? '', [pg('dinheiro', 113)]);
+    const { r, saidaId, pedidoId } = await lancar(luan, caixaId, '3557', 113, area.Barra ?? '', [pg('dinheiro', 113)]);
     aplicada(r);
     const versao = await versaoDoPedido(pedidoId);
     aplicada(
@@ -128,7 +128,7 @@ describe('versao_esperada', () => {
         pagamentos: [pg('cartao', 113)],
       }),
     );
-    const r2 = await joao.op('trocar_pagamento', {
+    const r2 = await dona.op('trocar_pagamento', {
       saida_id: saidaId,
       versao_esperada: versao,
       pagamentos: [pg('pix_maquininha', 113)],
@@ -143,7 +143,7 @@ describe('versao_esperada', () => {
 
 describe('dinheiro só se acrescenta (OPE3)', () => {
   it('o banco não deixa apagar nem reescrever valores, nem com acesso direto', async () => {
-    const { r, pedidoId } = await lancar(joao, caixaId, '3557', 113, area.Barra ?? '', [pg('dinheiro', 113)]);
+    const { r, pedidoId } = await lancar(luan, caixaId, '3557', 113, area.Barra ?? '', [pg('dinheiro', 113)]);
     aplicada(r);
     await expect(sql`delete from public.pagamentos where pedido_id = ${pedidoId}`).rejects.toThrow(/OPE3/);
     await expect(sql`update public.pagamentos set valor = 1 where pedido_id = ${pedidoId}`).rejects.toThrow(/OPE3/);
@@ -152,11 +152,11 @@ describe('dinheiro só se acrescenta (OPE3)', () => {
   });
 
   it('trocar a forma duas vezes deixa as trocas anteriores anuladas, com motivo', async () => {
-    const { r, saidaId, pedidoId } = await lancar(joao, caixaId, '3557', 113, area.Barra ?? '', [pg('dinheiro', 113)]);
+    const { r, saidaId, pedidoId } = await lancar(luan, caixaId, '3557', 113, area.Barra ?? '', [pg('dinheiro', 113)]);
     aplicada(r);
     for (const forma of ['cartao', 'pix_maquininha'] as const) {
       aplicada(
-        await joao.op('trocar_pagamento', {
+        await luan.op('trocar_pagamento', {
           saida_id: saidaId,
           versao_esperada: await versaoDoPedido(pedidoId),
           pagamentos: [pg(forma, 113)],
@@ -173,7 +173,7 @@ describe('dinheiro só se acrescenta (OPE3)', () => {
   });
 
   it('reabrir o acerto pede motivo e anula a sobra sem apagar', async () => {
-    aplicada((await lancar(joao, caixaId, '3557', 113, area.Barra ?? '', [pg('dinheiro', 113)])).r);
+    aplicada((await lancar(luan, caixaId, '3557', 113, area.Barra ?? '', [pg('dinheiro', 113)])).r);
     aplicada(await luan.op('informar_contado', { caixa_id: caixaId, dinheiro_contado: 20000 }));
     aplicada(
       await luan.op('confirmar_acerto', {
@@ -219,15 +219,14 @@ describe('MFA para admin e gerente', () => {
     expect((await comMfa.db.from('noites').select('id')).data?.length).toBe(1);
   });
 
-  it('motoboy e expedição entram sem MFA', async () => {
-    expect((await joao.db.from('caixas').select('id')).data?.length).toBe(1);
+  it('a expedição entra sem MFA', async () => {
     expect((await luan.db.from('caixas').select('id')).data?.length).toBe(1);
   });
 });
 
 describe('recusa com código', () => {
   it('a recusa traz o código da regra, igual ao do domínio', async () => {
-    const { r } = await lancar(joao, caixaId, '1234', 50, area.Pontal ?? '', [pg('dinheiro', 45)]);
+    const { r } = await lancar(luan, caixaId, '1234', 50, area.Pontal ?? '', [pg('dinheiro', 45)]);
     expect(r).toMatchObject({
       status: 'recusada',
       codigo: 'soma_diferente',

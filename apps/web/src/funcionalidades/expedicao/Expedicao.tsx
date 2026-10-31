@@ -5,7 +5,7 @@ import { Link, Navigate, Route, Routes } from 'react-router';
 import { mostrarAviso } from '../../compartilhado/avisos';
 import { IndicadorFila } from '../../compartilhado/status';
 import { Botao, Chip, DoisToques, Folha as FolhaQueSobe } from '../../compartilhado/ui';
-import { acoes, type Perfil, sair, useConfig, useDadosNoite, useNoite, usePerfis } from '../../data/repo';
+import { acoes, type Perfil, sair, useConfig, useDadosNoite, useMotoboys, useNoite, usePerfis } from '../../data/repo';
 import { AcertoLuan } from './AcertoLuan';
 import { Folha } from './Folha';
 import { LancarComanda } from './LancarComanda';
@@ -24,6 +24,8 @@ export function Expedicao({ perfil }: { perfil: Perfil }) {
   const noite = useNoite();
   const dados = useDadosNoite(noite?.id);
   const perfis = usePerfis();
+  const motoboys = useMotoboys();
+  const nomeMotoboy = (id: string) => motoboys.find((m) => m.id === id)?.nome ?? '?';
   const cfg = useConfig();
   const [lancando, setLancando] = useState(false);
 
@@ -56,10 +58,10 @@ export function Expedicao({ perfil }: { perfil: Perfil }) {
   }
 
   const comCaixa = new Set(dados.caixas.map((c) => c.motoboy_id));
-  const semCaixa = perfis.filter((p) => p.ativo && p.papeis.includes('motoboy') && !comCaixa.has(p.id));
+  // Decisão 0007: o motoboy é um cadastro; a chegada abre o caixa dele.
+  const semCaixa = motoboys.filter((m) => m.ativo && !comCaixa.has(m.id));
   const semAcerto = dados.caixas.filter((c) => !dados.acertos.some((a) => a.caixa_id === c.id));
   const pendentes = semAcerto.length;
-  const nome = (id: string) => perfis.find((p) => p.id === id)?.nome ?? '?';
 
   return (
     <>
@@ -89,7 +91,7 @@ export function Expedicao({ perfil }: { perfil: Perfil }) {
               {dados.caixas.length === 0 ? (
                 <p className="p-6 text-center text-apagado">Toque no nome de cada motoboy na ordem em que chegou.</p>
               ) : (
-                <Folha noite={aberta} dados={dados} perfis={perfis} />
+                <Folha noite={aberta} dados={dados} nomeMotoboy={nomeMotoboy} />
               )}
               {semAcerto.length > 0 && (
                 <Botao className="mx-3" onClick={() => setLancando(true)}>
@@ -99,7 +101,7 @@ export function Expedicao({ perfil }: { perfil: Perfil }) {
               <FolhaQueSobe aberta={lancando} aoFechar={() => setLancando(false)} titulo="Lançar comanda de papel">
                 {lancando && (
                   <LancarComanda
-                    caixas={semAcerto.map((c) => ({ id: c.id, nome: nome(c.motoboy_id) }))}
+                    caixas={semAcerto.map((c) => ({ id: c.id, nome: nomeMotoboy(c.motoboy_id) }))}
                     pedidosDaNoite={dados.pedidos}
                   />
                 )}
@@ -123,8 +125,11 @@ export function Expedicao({ perfil }: { perfil: Perfil }) {
             </div>
           }
         />
-        <Route path="caixa/:caixaId" element={<AcertoLuan dados={dados} perfis={perfis} perfil={perfil} />} />
-        <Route path="resumo" element={<Resumo noite={aberta} dados={dados} perfis={perfis} />} />
+        <Route
+          path="caixa/:caixaId"
+          element={<AcertoLuan dados={dados} perfis={perfis} perfil={perfil} nomeMotoboy={nomeMotoboy} />}
+        />
+        <Route path="resumo" element={<Resumo noite={aberta} dados={dados} nomeMotoboy={nomeMotoboy} />} />
         <Route path="*" element={<Navigate to="/expedicao" replace />} />
       </Routes>
     </>

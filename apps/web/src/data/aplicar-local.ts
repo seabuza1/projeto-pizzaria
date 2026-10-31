@@ -368,6 +368,16 @@ const aplicadores: { [T in TipoOperacao]: Aplicador<T> } = {
       ...(d.funcionalidades_desligadas ? { funcionalidades_desligadas: d.funcionalidades_desligadas } : {}),
     });
   },
+  async salvar_motoboy(db, d, op) {
+    const atual = await db.motoboys.get(d.motoboy_id);
+    await db.motoboys.put({
+      id: d.motoboy_id,
+      nome: d.nome,
+      ativo: d.ativo,
+      criado_em: atual?.criado_em ?? op.criada_em,
+      atualizado_em: op.criada_em,
+    });
+  },
   async salvar_perfil(db, d) {
     await db.perfis.update(d.perfil_id, {
       ...(d.nome ? { nome: d.nome } : {}),

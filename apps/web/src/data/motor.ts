@@ -25,7 +25,7 @@ export interface OpcoesMotor {
 }
 
 const TABELAS_DA_NOITE = ['caixas', 'pedidos', 'saidas', 'pagamentos', 'acertos', 'impressoes'] as const;
-const TABELAS_GERAIS = ['noites', 'areas', 'config', 'perfis'] as const;
+const TABELAS_GERAIS = ['noites', 'areas', 'config', 'perfis', 'motoboys'] as const;
 const MAX_TENTATIVAS = 5;
 
 export type Bloqueio = { tipo: 'atualizar' | 'mfa'; mensagem: string };
@@ -171,13 +171,14 @@ export class Motor {
   private async baixarAgora(): Promise<boolean> {
     const { banco, supabase } = this.o;
     try {
-      const [config, areas, perfis, noites] = await Promise.all([
+      const [config, areas, perfis, motoboys, noites] = await Promise.all([
         supabase.from('config').select('*'),
         supabase.from('areas').select('*').order('ordem'),
         supabase.from('perfis').select('*'),
+        supabase.from('motoboys').select('*').order('nome'),
         supabase.from('noites').select('*').order('data', { ascending: false }).limit(3),
       ]);
-      for (const r of [config, areas, perfis, noites]) if (r.error) throw r.error;
+      for (const r of [config, areas, perfis, motoboys, noites]) if (r.error) throw r.error;
       const noite = noites.data?.find((n) => !n.fechada_em) ?? noites.data?.[0];
       const vazio = { data: [], error: null };
       const daNoite = noite
@@ -199,6 +200,7 @@ export class Motor {
         await banco.config.bulkPut(config.data ?? []);
         await banco.areas.bulkPut(areas.data ?? []);
         await banco.perfis.bulkPut(perfis.data ?? []);
+        await banco.motoboys.bulkPut(motoboys.data ?? []);
         await banco.noites.bulkPut(noites.data ?? []);
         await banco.caixas.bulkPut((caixas.data ?? []) as never[]);
         await banco.pedidos.bulkPut((pedidos.data ?? []) as never[]);

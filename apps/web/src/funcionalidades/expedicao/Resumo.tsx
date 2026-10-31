@@ -6,7 +6,15 @@ import { baixarArquivo } from '../../compartilhado/arquivo';
 import { Botao, Linha, Secao } from '../../compartilhado/ui';
 import { contaDoCaixa, type DadosNoite, type Noite, type Perfil, useAreas } from '../../data/repo';
 
-export function Resumo({ noite, dados, perfis }: { noite: Noite; dados: DadosNoite; perfis: Perfil[] }) {
+export function Resumo({
+  noite,
+  dados,
+  nomeMotoboy,
+}: {
+  noite: Noite;
+  dados: DadosNoite;
+  nomeMotoboy: (id: string) => string;
+}) {
   const areas = useAreas(true);
   const contas = useMemo(() => dados.caixas.map((c) => ({ caixa: c, conta: contaDoCaixa(c, dados) })), [dados]);
   const r = resumirNoite(contas.map((c) => c.conta));
@@ -16,14 +24,13 @@ export function Resumo({ noite, dados, perfis }: { noite: Noite; dados: DadosNoi
   }, [areas, r.porArea]);
 
   function exportar() {
-    const nome = (id: string) => perfis.find((p) => p.id === id)?.nome ?? '?';
     baixarArquivo(
       `mel-noite-${noite.data}.csv`,
       noiteCsv(
         noite.data,
         contas.map(({ caixa, conta }) => ({
           ordem: caixa.ordem_chegada,
-          motoboy: nome(caixa.motoboy_id),
+          motoboy: nomeMotoboy(caixa.motoboy_id),
           conta,
           confirmado: dados.acertos.some((a) => a.caixa_id === caixa.id),
         })),

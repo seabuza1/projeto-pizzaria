@@ -201,7 +201,7 @@ export type Database = {
             foreignKeyName: 'caixas_motoboy_id_fkey';
             columns: ['motoboy_id'];
             isOneToOne: false;
-            referencedRelation: 'perfis';
+            referencedRelation: 'motoboys';
             referencedColumns: ['id'];
           },
           {
@@ -468,6 +468,31 @@ export type Database = {
             referencedColumns: ['id'];
           },
         ];
+      };
+      motoboys: {
+        Row: {
+          ativo: boolean;
+          atualizado_em: string;
+          criado_em: string;
+          id: string;
+          nome: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          ativo?: boolean;
+          atualizado_em?: string;
+          criado_em?: string;
+          id?: string;
+          nome: string;
+        };
+        Update: {
+          ativo?: boolean;
+          atualizado_em?: string;
+          criado_em?: string;
+          id?: string;
+          nome?: string;
+        };
+        Relationships: [];
       };
       noites: {
         Row: {
@@ -878,7 +903,7 @@ export type Database = {
             foreignKeyName: 'saidas_motoboy_id_fkey';
             columns: ['motoboy_id'];
             isOneToOne: false;
-            referencedRelation: 'perfis';
+            referencedRelation: 'motoboys';
             referencedColumns: ['id'];
           },
           {
