@@ -1,8 +1,8 @@
 // Conta do acerto com a origem de cada número (ACE10). Usada pelo motoboy, pelo Luan e no histórico.
 import { agruparPorCidade, type ContaAcerto, explicarConta, textoDasPartes } from '@mel/dominio';
 import { useMemo } from 'react';
-import { Linha, NOME_FORMA, reais, Secao } from '../../compartilhado/ui';
-import { useAreas } from '../../data/repo';
+import { useAreas } from '../data/repo';
+import { Linha, NOME_FORMA, reais, Secao } from './ui';
 
 export function ContaDetalhada({ conta, paraMotoboy }: { conta: ContaAcerto; paraMotoboy: boolean }) {
   const areas = useAreas(true);

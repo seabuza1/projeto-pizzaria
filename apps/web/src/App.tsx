@@ -1,28 +1,31 @@
-// Entrada do app: sessão, faixas fixas e rotas por papel.
+// Entrada do app: sessão, faixas fixas e as rotas e o menu montados a partir da lista de módulos.
 import type { ReactNode } from 'react';
 import { Navigate, NavLink, Route, Routes } from 'react-router';
+import type { FichaModulo } from './compartilhado/modulo';
 import { AvisoBloqueio, FaixaTeste, RodapeAvisos } from './compartilhado/status';
-import { type Perfil, useAppDesatualizado, useSessao } from './data/repo';
-import { CodigoMfa, Entrar } from './funcionalidades/entrar/Entrar';
-import { Motoboy } from './funcionalidades/motoboy/Motoboy';
+import { type Perfil, useAppDesatualizado, useConfig, useSessao } from './data/repo';
+import { modulos } from './funcionalidades';
+import { CodigoMfa, Entrar } from './sessao/Entrar';
 
-const ehEquipe = (p: Perfil) => p.papeis.some((x) => x === 'admin' || x === 'gerente' || x === 'expedicao');
-const ehMotoboy = (p: Perfil) => p.papeis.includes('motoboy');
+/** Módulos que a pessoa vê: ligados em config (OPE1) e de um papel que ela tem. */
+function useMeusModulos(perfil: Perfil): readonly FichaModulo[] {
+  const desligados = new Set(useConfig()?.funcionalidades_desligadas ?? []);
+  return modulos.filter((m) => !desligados.has(m.nome) && m.papeis.some((p) => perfil.papeis.includes(p)));
+}
 
-/** Quem tem mais de um papel (o Felipe é admin e motoboy) troca de tela por aqui. */
-function TrocaDePapel({ perfil }: { perfil: Perfil }) {
-  if (!(ehEquipe(perfil) && ehMotoboy(perfil))) return null;
+/** Quem tem mais de um módulo troca de tela por aqui. */
+function Menu({ meus }: { meus: readonly FichaModulo[] }) {
+  if (meus.length < 2) return null;
   const link = ({ isActive }: { isActive: boolean }) =>
     `min-h-12 flex-1 py-3 text-center text-sm ${isActive ? 'text-mel' : 'text-apagado'}`;
   return (
-    <div className="flex border-b border-borda">
-      <NavLink to="/motoboy" className={link}>
-        Meu caixa
-      </NavLink>
-      <NavLink to="/expedicao" className={link}>
-        Painel
-      </NavLink>
-    </div>
+    <nav className="flex border-b border-borda">
+      {meus.map((m) => (
+        <NavLink key={m.nome} to={m.menu.caminho} className={link}>
+          {m.menu.rotulo}
+        </NavLink>
+      ))}
+    </nav>
   );
 }
 
@@ -50,7 +53,29 @@ function Moldura({ children }: { children: ReactNode }) {
   );
 }
 
-export function App({ expedicao }: { expedicao: (perfil: Perfil) => ReactNode }) {
+function Dentro({ perfil }: { perfil: Perfil }) {
+  const meus = useMeusModulos(perfil);
+  const inicio = meus[0]?.menu.caminho ?? '/sem-acesso';
+  return (
+    <>
+      <Menu meus={meus} />
+      <Routes>
+        {meus.flatMap((m) =>
+          m.rotas.map((r) => (
+            <Route key={`${m.nome}${r.caminho}`} path={r.caminho} element={<r.Tela perfil={perfil} />} />
+          )),
+        )}
+        <Route
+          path="/sem-acesso"
+          element={<p className="p-6 text-center text-apagado">Esta conta não usa o app. Fale com o admin.</p>}
+        />
+        <Route path="*" element={<Navigate to={inicio} replace />} />
+      </Routes>
+    </>
+  );
+}
+
+export function App() {
   const sessao = useSessao();
   if (sessao.estado === 'carregando') return <Moldura>{null}</Moldura>;
   if (sessao.estado === 'fora')
@@ -65,21 +90,9 @@ export function App({ expedicao }: { expedicao: (perfil: Perfil) => ReactNode })
         <CodigoMfa sessao={sessao} />
       </Moldura>
     );
-
-  const { perfil } = sessao;
-  const inicio = ehEquipe(perfil) ? '/expedicao' : ehMotoboy(perfil) ? '/motoboy' : '/sem-acesso';
   return (
     <Moldura>
-      <TrocaDePapel perfil={perfil} />
-      <Routes>
-        {ehMotoboy(perfil) && <Route path="/motoboy/*" element={<Motoboy perfil={perfil} />} />}
-        {ehEquipe(perfil) && <Route path="/expedicao/*" element={expedicao(perfil)} />}
-        <Route
-          path="/sem-acesso"
-          element={<p className="p-6 text-center text-apagado">Esta conta não usa o app. Fale com o admin.</p>}
-        />
-        <Route path="*" element={<Navigate to={inicio} replace />} />
-      </Routes>
+      <Dentro perfil={sessao.perfil} />
     </Moldura>
   );
 }

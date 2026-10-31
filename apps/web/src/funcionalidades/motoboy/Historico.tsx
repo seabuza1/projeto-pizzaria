@@ -11,9 +11,9 @@ import {
 } from '@mel/dominio';
 import { useEffect, useMemo, useState } from 'react';
 import { baixarArquivo } from '../../compartilhado/arquivo';
+import { ContaDetalhada } from '../../compartilhado/ContaDetalhada';
 import { Botao, Chip, Folha, Linha, reais, Secao } from '../../compartilhado/ui';
 import { carregarHistorico, type NoiteHistorico, useAreas, useConfig } from '../../data/repo';
-import { ContaDetalhada } from '../acerto/ContaDetalhada';
 
 export function Historico({ motoboyId }: { motoboyId: string }) {
   const [noites, setNoites] = useState<NoiteHistorico[] | null>(null);

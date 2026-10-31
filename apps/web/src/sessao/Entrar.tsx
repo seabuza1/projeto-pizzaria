@@ -1,7 +1,7 @@
 // Login por e-mail e senha; admin e gerente confirmam o código do app autenticador (MFA).
 import { type FormEvent, useState } from 'react';
-import { Botao } from '../../compartilhado/ui';
-import { confirmarCodigo, entrar, type Sessao, sair } from '../../data/repo';
+import { Botao } from '../compartilhado/ui';
+import { confirmarCodigo, entrar, type Sessao, sair } from '../data/repo';
 
 const campo = 'min-h-12 w-full rounded-xl border border-borda bg-cartao px-4 text-texto outline-none focus:border-mel';
 

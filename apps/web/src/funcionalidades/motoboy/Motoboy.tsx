@@ -3,9 +3,9 @@ import { Navigate, NavLink, Route, Routes } from 'react-router';
 import { IndicadorFila } from '../../compartilhado/status';
 import { Botao, reais } from '../../compartilhado/ui';
 import { type Perfil, sair } from '../../data/repo';
-import { AcertoMotoboy } from '../acerto/AcertoMotoboy';
-import { Historico } from '../historico/Historico';
-import { Noite } from '../noite/Noite';
+import { AcertoMotoboy } from './AcertoMotoboy';
+import { Historico } from './Historico';
+import { Noite } from './Noite';
 import { useCaixaDoMotoboy } from './usar-caixa';
 
 function Aba({ para, rotulo }: { para: string; rotulo: string }) {

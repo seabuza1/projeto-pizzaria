@@ -1,8 +1,8 @@
 // Aba Acerto do motoboy: a conta detalhada e o estado ("Aguardando o Luan" ou confirmado).
 import { formatarHora } from '@mel/dominio';
+import { ContaDetalhada } from '../../compartilhado/ContaDetalhada';
 import { useConfig, usePerfis } from '../../data/repo';
-import type { CaixaDoMotoboy } from '../motoboy/usar-caixa';
-import { ContaDetalhada } from './ContaDetalhada';
+import type { CaixaDoMotoboy } from './usar-caixa';
 
 export function AcertoMotoboy({ c }: { c: CaixaDoMotoboy }) {
   const perfis = usePerfis();

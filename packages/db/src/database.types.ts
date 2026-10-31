@@ -221,6 +221,7 @@ export type Database = {
           criado_em: string;
           diaria_padrao: number;
           fases_ligadas: string[];
+          funcionalidades_desligadas: string[];
           fuso: string;
           id: string;
           unica: boolean;
@@ -234,6 +235,7 @@ export type Database = {
           criado_em?: string;
           diaria_padrao?: number;
           fases_ligadas?: string[];
+          funcionalidades_desligadas?: string[];
           fuso?: string;
           id?: string;
           unica?: boolean;
@@ -246,6 +248,7 @@ export type Database = {
           criado_em?: string;
           diaria_padrao?: number;
           fases_ligadas?: string[];
+          funcionalidades_desligadas?: string[];
           fuso?: string;
           id?: string;
           unica?: boolean;

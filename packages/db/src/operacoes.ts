@@ -98,6 +98,10 @@ const dadosPorTipo = {
     ambiente: z.enum(['producao', 'teste']).optional(),
     caixa_inicial_padrao: centavos.optional(),
     diaria_padrao: centavos.optional(),
+    funcionalidades_desligadas: z
+      .array(z.string().regex(/^[a-z_]{1,40}$/))
+      .max(30)
+      .optional(),
   }),
   salvar_perfil: z.object({
     perfil_id: id,

@@ -5,7 +5,7 @@ import { mostrarAviso } from '../../compartilhado/avisos';
 import { IndicadorFila } from '../../compartilhado/status';
 import { Botao, Chip, DoisToques } from '../../compartilhado/ui';
 import { acoes, type Perfil, sair, useConfig, useDadosNoite, useNoite, usePerfis } from '../../data/repo';
-import { AcertoLuan } from '../acerto/AcertoLuan';
+import { AcertoLuan } from './AcertoLuan';
 import { Folha } from './Folha';
 import { Resumo } from './Resumo';
 

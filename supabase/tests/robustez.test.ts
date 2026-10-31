@@ -237,3 +237,20 @@ describe('recusa com código', () => {
     expect(o?.codigo).toBe('soma_diferente');
   });
 });
+
+describe('interruptor de funcionalidades (OPE1)', () => {
+  it('o admin desliga uma funcionalidade sem deploy; nome inválido é recusado', async () => {
+    aplicada(await felipe.op('salvar_config', { funcionalidades_desligadas: ['motoboy', 'motoboy'] }));
+    const { data } = await luan.db.from('config').select('funcionalidades_desligadas').single();
+    expect(data?.funcionalidades_desligadas).toEqual(['motoboy']);
+    const r = await felipe.op('salvar_config', { funcionalidades_desligadas: ['Painel!'] });
+    expect(r).toMatchObject({ status: 'recusada', codigo: 'dados_invalidos' });
+    aplicada(await felipe.op('salvar_config', { funcionalidades_desligadas: [] }));
+  });
+
+  it('só o admin mexe no interruptor', async () => {
+    expect((await luan.op('salvar_config', { funcionalidades_desligadas: ['expedicao'] })).codigo).toBe(
+      'sem_permissao',
+    );
+  });
+});

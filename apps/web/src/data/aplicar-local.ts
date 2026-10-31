@@ -372,6 +372,7 @@ const aplicadores: { [T in TipoOperacao]: Aplicador<T> } = {
       ...(d.ambiente ? { ambiente: d.ambiente } : {}),
       ...(d.caixa_inicial_padrao !== undefined ? { caixa_inicial_padrao: d.caixa_inicial_padrao } : {}),
       ...(d.diaria_padrao !== undefined ? { diaria_padrao: d.diaria_padrao } : {}),
+      ...(d.funcionalidades_desligadas ? { funcionalidades_desligadas: d.funcionalidades_desligadas } : {}),
     });
   },
   async salvar_perfil(db, d) {

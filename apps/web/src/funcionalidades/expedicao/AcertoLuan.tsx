@@ -3,6 +3,7 @@ import { formatarHora, lerValor, textoDaLiquidacao } from '@mel/dominio';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { mostrarAviso } from '../../compartilhado/avisos';
+import { ContaDetalhada } from '../../compartilhado/ContaDetalhada';
 import { Botao, DoisToques, reais, Secao, SIGLA_FORMA } from '../../compartilhado/ui';
 import {
   acoes,
@@ -13,7 +14,6 @@ import {
   useAreas,
   useConfig,
 } from '../../data/repo';
-import { ContaDetalhada } from './ContaDetalhada';
 
 const campo = 'numero min-h-12 w-32 rounded-xl border border-borda bg-cartao px-3 text-right text-lg';
 

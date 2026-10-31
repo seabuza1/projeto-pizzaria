@@ -4,9 +4,9 @@ import { useMemo, useState } from 'react';
 import { mostrarAviso } from '../../compartilhado/avisos';
 import { Botao, reais, SIGLA_FORMA } from '../../compartilhado/ui';
 import { acoes, type Pagamento, pagamentosVigentes, type Saida, useAreas } from '../../data/repo';
-import type { CaixaDoMotoboy } from '../motoboy/usar-caixa';
 import { Lancar } from './Lancar';
 import { MenuSaida } from './MenuSaida';
+import type { CaixaDoMotoboy } from './usar-caixa';
 
 const ESTADO = {
   em_rota: { icone: '➜', cor: 'text-rota', nome: 'em rota' },
